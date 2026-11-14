@@ -1,0 +1,69 @@
+name: Python SDK CI
+on:
+  push:
+    branches: [develop, master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  test:
+    name: Run test suite
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        splunk-version: [latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-sdk-environment
+        with:
+          deps-group: test
+      - name: Download Splunk MCP Server App
+        continue-on-error: true
+        env:
+          SPLUNKBASE_USERNAME: ${{ secrets.SPLUNKBASE_USERNAME }}
+          SPLUNKBASE_PASSWORD: ${{ secrets.SPLUNKBASE_PASSWORD }}
+        run: uv run ./scripts/download_splunk_mcp_server_app.py
+      - name: Launch Splunk Docker instance
+        env:
+          SPLUNK_VERSION: ${{ matrix.splunk-version }}
+        run: docker compose up -d
+      - name: Set up .env
+        run: cp .env.template .env
+      - name: Write internal AI secrets to .env
+        env:
+          INTERNAL_AI_APP_KEY: ${{ secrets.INTERNAL_AI_APP_KEY }}
+          INTERNAL_AI_CLIENT_ID: ${{ secrets.INTERNAL_AI_CLIENT_ID }}
+          INTERNAL_AI_CLIENT_SECRET: ${{ secrets.INTERNAL_AI_CLIENT_SECRET }}
+          INTERNAL_AI_TOKEN_URL: ${{ secrets.INTERNAL_AI_TOKEN_URL }}
+          INTERNAL_AI_BASE_URL: ${{ secrets.INTERNAL_AI_BASE_URL }}
+        run: |
+          echo "internal_ai_app_key=$INTERNAL_AI_APP_KEY" >> .env
+          echo "internal_ai_client_id=$INTERNAL_AI_CLIENT_ID" >> .env
+          echo "internal_ai_client_secret=$INTERNAL_AI_CLIENT_SECRET" >> .env
+          echo "internal_ai_token_url=$INTERNAL_AI_TOKEN_URL" >> .env
+          echo "internal_ai_base_url=$INTERNAL_AI_BASE_URL" >> .env
+      - name: Restore pytest cache
+        if: ${{ github.ref != 'refs/heads/master' && github.ref != 'refs/heads/develop' }}
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: .pytest_cache
+          key: pytest-cache-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: pytest-cache-${{ runner.os }}-${{ github.ref_name }}-
+      - name: Run unit tests
+        run: make test-unit
+      - name: Run integration/system tests
+        run: make test-integration
+      - name: Coverage summary
+        run: |
+          echo "## Coverage" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          make coverage-report | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"

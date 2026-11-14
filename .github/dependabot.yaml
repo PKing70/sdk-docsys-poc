@@ -1,0 +1,21 @@
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    target-branch: "develop"
+    schedule:
+      interval: "monthly"
+    groups:
+      github-actions:
+        update-types: ["major", "minor", "patch"]
+    cooldown:
+      default-days: 7
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    groups:
+      python-uv-lock:
+        update-types: ["minor", "patch"]
+    cooldown:
+      default-days: 7

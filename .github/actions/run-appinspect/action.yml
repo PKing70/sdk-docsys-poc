@@ -1,0 +1,33 @@
+name: Run Splunk AppInspect
+description: Package a mock app containing the SDK and its dependencies, then validate it with AppInspect.
+
+runs:
+  using: composite
+  steps:
+    - name: Install AppInspect dependencies
+      shell: bash
+      run: sudo apt-get install -y libmagic1
+    - name: Install the SDK and its dependencies into a mock app
+      shell: bash
+      run: |
+        mkdir -p ./tests/system/test_apps/generating_app/bin/lib
+        uv pip install ".[openai, anthropic, google]" --target ./tests/system/test_apps/generating_app/bin/lib
+    - name: Package the mock app
+      shell: bash
+      run: |
+        cd ./tests/system/test_apps/generating_app
+        tar -czf mock_app.tgz --exclude="__pycache__" bin default metadata
+    - name: Validate the mock app with AppInspect
+      shell: bash
+      run: |
+        # AppInspect doesn't follow UNIX conventions, gotta handle their exit codes explicitly
+        # https://dev.splunk.com/enterprise/reference/appinspect/appinspectcliref#inspect
+        uvx splunk-appinspect inspect \
+          ./tests/system/test_apps/generating_app/mock_app.tgz \
+          --included-tags cloud --ci || exit_code=$?
+        case "${exit_code:-0}" in
+          0)   ;;  # all checks passed
+          103) ;;  # warnings (--ci)
+          104) ;;  # future-tag warnings (--ci)
+          *)   exit "${exit_code}" ;;  # 101=failures, 1=packaging, 2=exception, 3=error, etc.
+        esac

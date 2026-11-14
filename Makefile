@@ -1,0 +1,149 @@
+### Conveniences for splunk-sdk-python development
+
+## VIRTUALENV MANAGEMENT
+
+# https://docs.astral.sh/uv/reference/cli/#uv-sync
+# --no-config skips Splunk's internal PyPI mirror
+UV_SYNC_CMD := uv sync --no-config
+# https://docs.astral.sh/uv/reference/cli/#uv-run
+UV_RUN_CMD := uv run
+# https://docs.zizmor.sh/usage
+ZIZMOR_CMD := $(UV_RUN_CMD) zizmor --pedantic --strict-collection
+
+.PHONY: install
+install:
+	$(UV_SYNC_CMD) --dev
+
+.PHONY: upgrade
+upgrade:
+	$(UV_SYNC_CMD) --dev --upgrade
+
+# Workaround for make being unable to pass arguments to underlying cmd
+# $ SDK_DEPS_GROUP="build" make ci-install
+SDK_DEPS_GROUP ?= dev
+
+.PHONY: ci-install
+ci-install:
+	$(UV_SYNC_CMD) --frozen --group $(SDK_DEPS_GROUP)
+
+.PHONY: build
+build:
+	uv build --no-config
+
+.PHONY: lint
+lint: lint-python lint-gh-actions lint-makefile
+
+.PHONY: lint-gh-actions
+lint-gh-actions:
+	$(ZIZMOR_CMD) ./.github
+
+# --fix-only never fails on unfixable violations, so rules that must be enforced
+# get a separate strict `ruff check --select` pass.
+.PHONY: lint-python
+lint-python:
+	$(UV_RUN_CMD) ruff check --fix-only $(if $(CI),--exit-non-zero-on-fix)
+	$(UV_RUN_CMD) ruff check --select N
+	$(UV_RUN_CMD) ruff format $(if $(CI),--check)
+	$(UV_RUN_CMD) basedpyright
+
+.PHONY: lint-makefile
+lint-makefile:
+	$(UV_RUN_CMD) mbake format --config ./.bake.toml $(if $(CI),--check) Makefile
+	$(UV_RUN_CMD) mbake validate --config ./.bake.toml Makefile
+
+.PHONY: clean
+clean:
+	rm -rf ./build ./dist ./.venv ./.ruff_cache ./.pytest_cache ./splunk_sdk.egg-info ./__pycache__
+	find . -name __pycache__ -type d -exec rm -rf {} +
+
+DOCS_BUILDDIR := docs/_build
+DOCS_HTMLDIR := $(DOCS_BUILDDIR)/html
+DOCS_ZIPFILE := $(DOCS_BUILDDIR)/splunk-sdk-python-docs.zip
+
+.PHONY: docs
+docs:
+	rm -rf $(DOCS_BUILDDIR)
+	sphinx-build -b html -d $(DOCS_BUILDDIR)/doctrees ./docs $(DOCS_HTMLDIR)
+	sh docs/munge_links.sh $(DOCS_HTMLDIR)
+	@echo "[splunk-sdk] ---"
+	@echo "[splunk-sdk] Build finished. HTML pages available at $(DOCS_HTMLDIR)."
+
+.PHONY: docs-zip
+docs-zip: docs
+	cd $(DOCS_HTMLDIR) && zip -r $(abspath $(DOCS_ZIPFILE)) .
+	@echo "[splunk-sdk] Zip available at $(DOCS_ZIPFILE)."
+
+## TESTING
+
+# --ff lets previously failing tests go first
+# -ra prints a report on all failed tests after a run
+# -vv shows why a test failed while the rest of the suite is running
+PYTHON_CMD := uv run python
+COV_ARGS := --cov=splunklib --cov-report=term-missing --cov-append
+PYTEST_CMD := $(PYTHON_CMD) -m pytest --no-header --ff -ra -vv $(COV_ARGS)
+
+.PHONY: test
+test:
+	$(PYTEST_CMD) ./tests
+
+.PHONY: test-unit
+test-unit:
+	$(PYTEST_CMD) ./tests/unit
+
+.PHONY: test-integration
+test-integration:
+	$(PYTEST_CMD) ./tests/integration ./tests/system
+
+.PHONY: test-ai
+test-ai:
+	$(PYTEST_CMD) ./tests/integration/ai ./tests/unit/ai
+
+.PHONY: coverage-report
+coverage-report:
+	$(UV_RUN_CMD) coverage report
+
+## DOCKER
+
+CONTAINER_NAME := splunk
+SPLUNK_HOME := /opt/splunk
+
+.PHONY: docker-up
+docker-up:
+	# For podman (at least on macOS) you might need to add DOCKER_BUILDKIT=0
+	# --build forces Docker to build a new image instead of using an existing one
+	docker compose up -d --build
+
+.PHONY: docker-ensure-up
+docker-ensure-up:
+	@for i in `seq 0 180`; do \
+		if docker exec -it $(CONTAINER_NAME) /bin/bash -c "/sbin/checkstate.sh &> /dev/null"; then \
+			break; \
+		fi; \
+		printf "\rWaiting for Splunk for %s seconds..." $$i; \
+		sleep 1; \
+	done
+
+.PHONY: docker-start
+docker-start: docker-up docker-ensure-up
+
+.PHONY: docker-down
+docker-down:
+	docker compose stop
+
+.PHONY: docker-restart
+docker-restart: docker-down docker-start
+
+.PHONY: docker-remove
+docker-remove:
+	docker compose rm -f -s
+
+.PHONY: docker-refresh
+docker-refresh: docker-remove docker-start
+
+.PHONY: docker-splunk-restart
+docker-splunk-restart:
+	docker exec -u splunk $(CONTAINER_NAME) $(SPLUNK_HOME)/bin/splunk restart
+
+.PHONY: docker-tail-python-log
+docker-tail-python-log:
+	docker exec -u root $(CONTAINER_NAME) sudo tail -n 20 $(SPLUNK_HOME)/var/log/splunk/python.log

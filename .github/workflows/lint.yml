@@ -1,0 +1,28 @@
+name: Python SDK Lint
+on:
+  push:
+    branches: [develop, master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  lint:
+    name: Run linters
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-sdk-environment
+        with:
+          deps-group: lint
+      - name: Verify uv.lock is up-to-date
+        run: uv lock --check
+      - name: Verify files are linted and formatted
+        run: make lint

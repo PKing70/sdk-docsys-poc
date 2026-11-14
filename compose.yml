@@ -1,0 +1,49 @@
+services:
+    splunk:
+        container_name: splunk
+        platform: linux/amd64
+        build:
+            context: .
+            dockerfile: Dockerfile
+        environment:
+            - SPLUNK_START_ARGS=--accept-license
+            - SPLUNK_GENERAL_TERMS=--accept-sgt-current-at-splunk-com
+            - SPLUNK_HEC_TOKEN=11111111-1111-1111-1111-1111111111113
+            - SPLUNK_PASSWORD=changed!
+            - SPLUNK_APPS_URL=https://github.com/splunk/sdk-app-collection/releases/latest/download/sdkappcollection.tgz
+        ports:
+            - "8000:8000"
+            - "8088:8088"
+            - "8089:8089"
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:8000"]
+            interval: 5s
+            timeout: 5s
+            retries: 20
+        volumes:
+            - "./tests/system/test_apps/eventing_app:/opt/splunk/etc/apps/eventing_app"
+            - "./tests/system/test_apps/generating_app:/opt/splunk/etc/apps/generating_app"
+            - "./tests/system/test_apps/reporting_app:/opt/splunk/etc/apps/reporting_app"
+            - "./tests/system/test_apps/streaming_app:/opt/splunk/etc/apps/streaming_app"
+            - "./tests/system/test_apps/modularinput_app:/opt/splunk/etc/apps/modularinput_app"
+            - "./tests/system/test_apps/cre_app:/opt/splunk/etc/apps/cre_app"
+            - "./tests/system/test_apps/ai_agentic_test_app:/opt/splunk/etc/apps/ai_agentic_test_app"
+            - "./tests/system/test_apps/ai_agentic_test_local_tools_app:/opt/splunk/etc/apps/ai_agentic_test_local_tools_app"
+
+            - "./examples/ai_custom_search_app:/opt/splunk/etc/apps/ai_custom_search_app"
+            - "./examples/ai_custom_alert_app:/opt/splunk/etc/apps/ai_custom_alert_app"
+            - "./examples/ai_modinput_app:/opt/splunk/etc/apps/ai_modinput_app"
+
+            - "./splunklib:/opt/splunk/etc/apps/eventing_app/bin/splunklib"
+            - "./splunklib:/opt/splunk/etc/apps/generating_app/bin/splunklib"
+            - "./splunklib:/opt/splunk/etc/apps/reporting_app/bin/splunklib"
+            - "./splunklib:/opt/splunk/etc/apps/streaming_app/bin/splunklib"
+            - "./splunklib:/opt/splunk/etc/apps/modularinput_app/bin/splunklib"
+            - "./splunklib:/opt/splunk/etc/apps/ai_agentic_test_app/bin/lib/splunklib"
+            - "./splunklib:/opt/splunk/etc/apps/ai_agentic_test_local_tools_app/bin/lib/splunklib"
+            - "./splunklib:/opt/splunk/etc/apps/ai_custom_search_app/bin/lib/splunklib"
+            - "./splunklib:/opt/splunk/etc/apps/ai_custom_alert_app/bin/lib/splunklib"
+            - "./splunklib:/opt/splunk/etc/apps/ai_modinput_app/bin/lib/splunklib"
+
+            - "./tests:/opt/splunk/etc/apps/ai_agentic_test_app/bin/lib/tests"
+            - "./tests:/opt/splunk/etc/apps/ai_agentic_test_local_tools_app/bin/lib/tests"
