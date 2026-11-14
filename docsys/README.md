@@ -1,17 +1,19 @@
-# docsys: a doc system for the Splunk Python SDK
+# Docsys: a documentation maintenance system for the Splunk Python SDK
 
-`docsys/` is added next to the SDK. It never edits SDK files. When the SDK's public API
+`docsys/` has been added next to the SDK. It never edits SDK files. When the SDK's public API
 changes, it works out which docs are affected, drafts conceptual and procedural pages plus
 runnable examples, measures their quality in a bounded loop, and builds one site that
 combines those guides with the existing Sphinx API reference.
 
-## What is and is not changed in this copy
+## What is and is not changed here
 
 The first commit in this repository is the upstream SDK, unmodified. The second adds
 `docsys/` and one workflow. `git diff <first> <second>` shows exactly that. One later commit
 removes the SDK's `.github/dependabot.yaml`, because dependency-update pull requests for a
 private copy that is not shipped are noise, and merging them would change the SDK's pins.
 The SDK's own workflows (lint, test, appinspect, CD) are disabled in the repository settings.
+
+As I refine this proof, we should be able to get all further changes out of PR history.
 
 ## Quick start
 
@@ -37,7 +39,7 @@ review was skipped.
 
 ## Credentials
 
-Never put a key in a file, a command line, or this repo. Use the macOS Keychain:
+Never put a key in a file, a command line, or this repo (yet). Use the macOS Keychain:
 
 1. One time, in a terminal. You paste the key at the prompt, so it never shows in history:
    `security add-generic-password -a "$USER" -s docsys-anthropic -U -w`
@@ -50,6 +52,12 @@ For GitHub Actions, set the key as a repository secret from the clipboard, so it
 a file: `pbpaste | gh secret set ANTHROPIC_API_KEY --repo <owner>/<repo>`. The workflow reads
 `secrets.ANTHROPIC_API_KEY`. `tests/test_no_secrets.py` fails if anything credential-shaped
 is in the project, and `.gitignore` excludes `.env` and `*.pem`.
+
+If/when I get ai-devx tokens to use instead, I will change the cred model and perhaps add 
+them to github secrets, making the system devops automatable from a workflow. In the meantime,
+I am running against my personal credits with my personal key (judiciously) and there's no
+way to "run" directly from this repo yet. As designed; so only I burn my credits locally as I 
+see fit.
 
 ## Commands
 
