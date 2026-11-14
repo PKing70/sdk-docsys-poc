@@ -5,6 +5,14 @@ changes, it works out which docs are affected, drafts conceptual and procedural 
 runnable examples, measures their quality in a bounded loop, and builds one site that
 combines those guides with the existing Sphinx API reference.
 
+## What is and is not changed in this copy
+
+The first commit in this repository is the upstream SDK, unmodified. The second adds
+`docsys/` and one workflow. `git diff <first> <second>` shows exactly that. One later commit
+removes the SDK's `.github/dependabot.yaml`, because dependency-update pull requests for a
+private copy that is not shipped are noise, and merging them would change the SDK's pins.
+The SDK's own workflows (lint, test, appinspect, CD) are disabled in the repository settings.
+
 ## Quick start
 
 ```bash
