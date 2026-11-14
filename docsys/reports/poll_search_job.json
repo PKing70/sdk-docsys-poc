@@ -1,0 +1,166 @@
+{
+ "artifact": "poll_search_job",
+ "status": "accepted",
+ "reason": "gain +0.006 below 0.02; stopped polishing",
+ "score": 0.977,
+ "iterations": [
+  {
+   "n": 0,
+   "score": 0.972,
+   "gate_failures": [
+    "llm_rubric"
+   ],
+   "advisory_failures": [],
+   "skipped": [],
+   "action": "initial draft"
+  },
+  {
+   "n": 1,
+   "score": 0.977,
+   "gate_failures": [],
+   "advisory_failures": [],
+   "skipped": [],
+   "action": "revision kept (score +0.006)"
+  }
+ ],
+ "checks": [
+  {
+   "name": "parses",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": null,
+   "threshold": null,
+   "detail": ""
+  },
+  {
+   "name": "header_docstring",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": "ok",
+   "threshold": null,
+   "detail": "module docstring needs Goal:, Prerequisites:, Run:"
+  },
+  {
+   "name": "entrypoint",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": null,
+   "threshold": null,
+   "detail": "needs main() and an if __name__ == '__main__' guard (no work at import)"
+  },
+  {
+   "name": "regions_balanced",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": 3,
+   "threshold": ">=1",
+   "detail": "regions mark the lines docs pull in"
+  },
+  {
+   "name": "self_contained",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": "ok",
+   "threshold": null,
+   "detail": "copy/paste runnable: stdlib and splunklib only"
+  },
+  {
+   "name": "splunklib_symbols_exist",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": "ok",
+   "threshold": null,
+   "detail": "module-level API used must exist"
+  },
+  {
+   "name": "no_hardcoded_secrets",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": "ok",
+   "threshold": null,
+   "detail": ""
+  },
+  {
+   "name": "ruff_lint",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": null,
+   "threshold": null,
+   "detail": ""
+  },
+  {
+   "name": "ruff_format",
+   "category": "code",
+   "passed": true,
+   "severity": "advisory",
+   "value": null,
+   "threshold": null,
+   "detail": ""
+  },
+  {
+   "name": "length",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": 70,
+   "threshold": 90,
+   "detail": ""
+  },
+  {
+   "name": "region_length",
+   "category": "code",
+   "passed": true,
+   "severity": "advisory",
+   "value": 9,
+   "threshold": 30,
+   "detail": ""
+  },
+  {
+   "name": "complexity",
+   "category": "code",
+   "passed": true,
+   "severity": "advisory",
+   "value": 8,
+   "threshold": 12,
+   "detail": ""
+  },
+  {
+   "name": "env_config",
+   "category": "code",
+   "passed": true,
+   "severity": "advisory",
+   "value": null,
+   "threshold": null,
+   "detail": "connection settings should come from the environment"
+  },
+  {
+   "name": "llm_rubric",
+   "category": "judge",
+   "passed": true,
+   "severity": "gate",
+   "value": {
+    "accuracy": 4.0,
+    "clarity": 4.0,
+    "teaching_value": 4.0,
+    "completeness": 4.0
+   },
+   "threshold": 3.5,
+   "detail": ""
+  }
+ ],
+ "judge_issues": [
+  "The comment says is_ready is needed before is_done and that checking both keeps state fresh. is_done already checks readiness internally, so `is_ready() and is_done()` is redundant and the rationale is misleading.",
+  "`client.connect` is used but is not in the supplied API facts, so it cannot be verified against them.",
+  "The comment claims a 5-minute TTL replaces a 'default TTL' without stating that value, and cancel() in finally makes the TTL mostly redundant. The scenario is unclear.",
+  "On timeout the script cancels the job but never mentions `finalize` as a way to keep partial results. This is a missed realistic option.",
+  "The docstring says jobs allow pausing and re-reading results, but the example demonstrates neither. The listed benefits are not shown."
+ ]
+}

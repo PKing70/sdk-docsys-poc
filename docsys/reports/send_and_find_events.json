@@ -1,0 +1,172 @@
+{
+ "artifact": "send_and_find_events",
+ "status": "needs_human_plateau",
+ "reason": "revision did not improve the best draft; stopped",
+ "score": 0.977,
+ "iterations": [
+  {
+   "n": 0,
+   "score": 0.977,
+   "gate_failures": [
+    "llm_rubric"
+   ],
+   "advisory_failures": [],
+   "skipped": [],
+   "action": "initial draft"
+  },
+  {
+   "n": 1,
+   "score": 0.835,
+   "gate_failures": [
+    "splunklib_symbols_exist",
+    "llm_rubric"
+   ],
+   "advisory_failures": [
+    "ruff_format",
+    "complexity"
+   ],
+   "skipped": [],
+   "action": "revision discarded (score -0.142)"
+  }
+ ],
+ "checks": [
+  {
+   "name": "parses",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": null,
+   "threshold": null,
+   "detail": ""
+  },
+  {
+   "name": "header_docstring",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": "ok",
+   "threshold": null,
+   "detail": "module docstring needs Goal:, Prerequisites:, Run:"
+  },
+  {
+   "name": "entrypoint",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": null,
+   "threshold": null,
+   "detail": "needs main() and an if __name__ == '__main__' guard (no work at import)"
+  },
+  {
+   "name": "regions_balanced",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": 4,
+   "threshold": ">=1",
+   "detail": "regions mark the lines docs pull in"
+  },
+  {
+   "name": "self_contained",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": "ok",
+   "threshold": null,
+   "detail": "copy/paste runnable: stdlib and splunklib only"
+  },
+  {
+   "name": "splunklib_symbols_exist",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": "ok",
+   "threshold": null,
+   "detail": "module-level API used must exist"
+  },
+  {
+   "name": "no_hardcoded_secrets",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": "ok",
+   "threshold": null,
+   "detail": ""
+  },
+  {
+   "name": "ruff_lint",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": null,
+   "threshold": null,
+   "detail": ""
+  },
+  {
+   "name": "ruff_format",
+   "category": "code",
+   "passed": true,
+   "severity": "advisory",
+   "value": null,
+   "threshold": null,
+   "detail": ""
+  },
+  {
+   "name": "length",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": 58,
+   "threshold": 90,
+   "detail": ""
+  },
+  {
+   "name": "region_length",
+   "category": "code",
+   "passed": true,
+   "severity": "advisory",
+   "value": 10,
+   "threshold": 30,
+   "detail": ""
+  },
+  {
+   "name": "complexity",
+   "category": "code",
+   "passed": true,
+   "severity": "advisory",
+   "value": 7,
+   "threshold": 12,
+   "detail": ""
+  },
+  {
+   "name": "env_config",
+   "category": "code",
+   "passed": true,
+   "severity": "advisory",
+   "value": null,
+   "threshold": null,
+   "detail": "connection settings should come from the environment"
+  },
+  {
+   "name": "llm_rubric",
+   "category": "judge",
+   "passed": false,
+   "severity": "gate",
+   "value": {
+    "accuracy": 4.0,
+    "clarity": 5.0,
+    "teaching_value": 4.0,
+    "completeness": 3.0
+   },
+   "threshold": 3.5,
+   "detail": "below threshold: completeness"
+  }
+ ],
+ "judge_issues": [
+  "Cleanup calls service.indexes.delete(INDEX) unconditionally, so it also deletes a pre-existing sdk_docs_demo index and its data; only delete if the script created it.",
+  "Search query lacks a time range (earliest_time), so oneshot may miss events or default to a limited window; also no count=0 means results may be truncated at the default limit.",
+  "No handling of failures from index.submit or an unreachable host/auth error; the 30s timeout prints partial results without signaling failure.",
+  "Index deletion is asynchronous and may need a wait or restart in some deployments; the docstring does not warn that deleting indexes is destructive.",
+  "Does not mention that submit() uses the receivers/simple endpoint (one HTTP request per event), nor index.attach() or attached_socket() as better options for bulk sends."
+ ]
+}

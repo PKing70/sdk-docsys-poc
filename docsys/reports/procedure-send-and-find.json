@@ -1,0 +1,168 @@
+{
+ "artifact": "procedure-send-and-find",
+ "status": "needs_human_plateau",
+ "reason": "gain +0.005 below 0.02; gates still fail",
+ "score": 0.968,
+ "iterations": [
+  {
+   "n": 0,
+   "score": 0.963,
+   "gate_failures": [
+    "llm_rubric"
+   ],
+   "advisory_failures": [],
+   "skipped": [],
+   "action": "initial draft"
+  },
+  {
+   "n": 1,
+   "score": 0.968,
+   "gate_failures": [
+    "llm_rubric"
+   ],
+   "advisory_failures": [],
+   "skipped": [],
+   "action": "revision kept (score +0.005)"
+  }
+ ],
+ "checks": [
+  {
+   "name": "no_embedded_code",
+   "category": "prose",
+   "passed": true,
+   "severity": "gate",
+   "value": 0,
+   "threshold": 0,
+   "detail": "code must live in examples/ and be pulled in with coderef"
+  },
+  {
+   "name": "banned_terms",
+   "category": "prose",
+   "passed": true,
+   "severity": "gate",
+   "value": 0,
+   "threshold": 0,
+   "detail": "weasel words and em-dashes are not allowed"
+  },
+  {
+   "name": "single_h1",
+   "category": "prose",
+   "passed": true,
+   "severity": "gate",
+   "value": 1,
+   "threshold": 1,
+   "detail": ""
+  },
+  {
+   "name": "required_sections",
+   "category": "prose",
+   "passed": true,
+   "severity": "gate",
+   "value": "ok",
+   "threshold": "prerequisites, steps, verify",
+   "detail": "procedure pages need these sections"
+  },
+  {
+   "name": "flesch_reading_ease",
+   "category": "prose",
+   "passed": true,
+   "severity": "gate",
+   "value": 79.9,
+   "threshold": 30,
+   "detail": ""
+  },
+  {
+   "name": "fk_grade",
+   "category": "prose",
+   "passed": true,
+   "severity": "advisory",
+   "value": 5.1,
+   "threshold": 13,
+   "detail": ""
+  },
+  {
+   "name": "avg_sentence_words",
+   "category": "prose",
+   "passed": true,
+   "severity": "advisory",
+   "value": 11.9,
+   "threshold": 24,
+   "detail": ""
+  },
+  {
+   "name": "max_sentence_words",
+   "category": "prose",
+   "passed": true,
+   "severity": "advisory",
+   "value": 26,
+   "threshold": 45,
+   "detail": ""
+  },
+  {
+   "name": "coderef_resolves",
+   "category": "prose",
+   "passed": true,
+   "severity": "gate",
+   "value": "ok",
+   "threshold": null,
+   "detail": ""
+  },
+  {
+   "name": "has_code_examples",
+   "category": "prose",
+   "passed": true,
+   "severity": "gate",
+   "value": 4,
+   "threshold": 1,
+   "detail": ""
+  },
+  {
+   "name": "symbol_refs_exist",
+   "category": "coverage",
+   "passed": true,
+   "severity": "gate",
+   "value": "ok",
+   "threshold": null,
+   "detail": "every `splunklib.x.y` in the text must exist in the API snapshot"
+  },
+  {
+   "name": "key_symbols_explained",
+   "category": "coverage",
+   "passed": true,
+   "severity": "gate",
+   "value": "ok",
+   "threshold": null,
+   "detail": "manifest key_symbols named in the prose"
+  },
+  {
+   "name": "key_symbols_exercised",
+   "category": "coverage",
+   "passed": true,
+   "severity": "gate",
+   "value": "ok",
+   "threshold": null,
+   "detail": "manifest key_symbols used by an example"
+  },
+  {
+   "name": "llm_rubric",
+   "category": "judge",
+   "passed": false,
+   "severity": "gate",
+   "value": {
+    "accuracy": 3.0,
+    "clarity": 4.0,
+    "teaching_value": 4.0,
+    "completeness": 3.0
+   },
+   "threshold": 3.5,
+   "detail": "below threshold: accuracy, completeness"
+  }
+ ],
+ "judge_issues": [
+  "The roll_hot_buckets advice is misleading: hot-bucket events are already searchable, so rolling them to warm will not fix an empty search. Remove it or explain its real purpose.",
+  "Step 1 says create returns an Index to use next, but the code discards that return value and re-fetches with service.indexes[INDEX]. Prose and code disagree.",
+  "The default limit of 100 results for oneshot is not backed by the API facts, and the loop itself never passes count=0. State the source or soften the claim.",
+  "The rerun advice conflicts with the loop. A leftover index already holds events, so the loop exits early with a wrong count, and `Found 3 of 3` is not guaranteed. Suggest Index.clean at the start.",
+  "The guide omits Index.attach, attached_socket and upload for bulk or streaming ingest, so readers do not learn when per-event submit is the wrong tool."
+ ]
+}

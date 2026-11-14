@@ -1,0 +1,168 @@
+{
+ "artifact": "kvstore_notes",
+ "status": "needs_human_plateau",
+ "reason": "revision did not improve the best draft; stopped",
+ "score": 0.972,
+ "iterations": [
+  {
+   "n": 0,
+   "score": 0.972,
+   "gate_failures": [
+    "llm_rubric"
+   ],
+   "advisory_failures": [],
+   "skipped": [],
+   "action": "initial draft"
+  },
+  {
+   "n": 1,
+   "score": 0.966,
+   "gate_failures": [
+    "llm_rubric"
+   ],
+   "advisory_failures": [],
+   "skipped": [],
+   "action": "revision discarded (score -0.006)"
+  }
+ ],
+ "checks": [
+  {
+   "name": "parses",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": null,
+   "threshold": null,
+   "detail": ""
+  },
+  {
+   "name": "header_docstring",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": "ok",
+   "threshold": null,
+   "detail": "module docstring needs Goal:, Prerequisites:, Run:"
+  },
+  {
+   "name": "entrypoint",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": null,
+   "threshold": null,
+   "detail": "needs main() and an if __name__ == '__main__' guard (no work at import)"
+  },
+  {
+   "name": "regions_balanced",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": 4,
+   "threshold": ">=1",
+   "detail": "regions mark the lines docs pull in"
+  },
+  {
+   "name": "self_contained",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": "ok",
+   "threshold": null,
+   "detail": "copy/paste runnable: stdlib and splunklib only"
+  },
+  {
+   "name": "splunklib_symbols_exist",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": "ok",
+   "threshold": null,
+   "detail": "module-level API used must exist"
+  },
+  {
+   "name": "no_hardcoded_secrets",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": "ok",
+   "threshold": null,
+   "detail": ""
+  },
+  {
+   "name": "ruff_lint",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": null,
+   "threshold": null,
+   "detail": ""
+  },
+  {
+   "name": "ruff_format",
+   "category": "code",
+   "passed": true,
+   "severity": "advisory",
+   "value": null,
+   "threshold": null,
+   "detail": ""
+  },
+  {
+   "name": "length",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": 49,
+   "threshold": 90,
+   "detail": ""
+  },
+  {
+   "name": "region_length",
+   "category": "code",
+   "passed": true,
+   "severity": "advisory",
+   "value": 3,
+   "threshold": 30,
+   "detail": ""
+  },
+  {
+   "name": "complexity",
+   "category": "code",
+   "passed": true,
+   "severity": "advisory",
+   "value": 5,
+   "threshold": 12,
+   "detail": ""
+  },
+  {
+   "name": "env_config",
+   "category": "code",
+   "passed": true,
+   "severity": "advisory",
+   "value": null,
+   "threshold": null,
+   "detail": "connection settings should come from the environment"
+  },
+  {
+   "name": "llm_rubric",
+   "category": "judge",
+   "passed": false,
+   "severity": "gate",
+   "value": {
+    "accuracy": 5.0,
+    "clarity": 4.0,
+    "teaching_value": 3.0,
+    "completeness": 3.0
+   },
+   "threshold": 3.5,
+   "detail": "below threshold: teaching_value, completeness"
+  }
+ ],
+ "judge_issues": [
+  "The finally block deletes COLLECTION even if it existed before the script ran, so it can destroy real data. Track whether the script created it, or use a unique name.",
+  "notes.delete() before service.kvstore.delete(COLLECTION) is redundant, since dropping the collection removes its documents. The comment implies a needed step and obscures intent.",
+  "create() is called with no fields or accelerated_fields, so the example never shows schema or indexing for a realistic query like priority <= 1.",
+  "Realistic app-database operations are missing: update, delete_by_id, query_by_id, and batch_save. Inserting in a loop instead of batch_save is inefficient and teaches a weaker pattern.",
+  "The insert() return value, which includes _key, is discarded. The reader never learns how to keep an ID for later update or delete calls."
+ ]
+}

@@ -1,0 +1,29 @@
+# Quality gates. "gate" checks must pass for a draft to be accepted; "advisory" checks
+# lower the score and are reported, but never block acceptance on their own.
+# Thresholds are deliberately modest: the goal is a known, explained floor, not perfection.
+
+[prose]
+max_fenced_blocks = 0                  # code lives in examples/, pulled in with coderef
+allowed_fence_langs = ["text", "console"]  # plain output may be fenced, code may not
+banned_terms = ["simply", "just", "easily", "obviously", "of course", "clearly", "—"]
+min_flesch = 30                        # technical prose; below 30 is very hard to read
+max_fk_grade = 13                      # advisory
+max_avg_sentence_words = 24            # advisory
+max_sentence_words = 45                # advisory
+
+[prose.required_sections]              # case-insensitive substring match on headings
+concept = ["how it works", "when to use"]
+procedure = ["prerequisites", "steps", "verify"]
+
+[code]
+max_lines = 90                         # examples stay short and focused
+max_region_lines = 30                  # advisory: a region is one idea
+max_branches = 12                      # advisory: rough complexity ceiling
+
+[judge]
+min_score = 3.5                        # LLM rubric, 1-5 per dimension
+dimensions = ["accuracy", "clarity", "teaching_value", "completeness"]
+
+[loop]
+max_iterations = 3                     # revision passes after the first draft
+min_improvement = 0.02                 # stop when a pass improves the score by less

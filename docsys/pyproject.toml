@@ -1,0 +1,47 @@
+[project]
+name = "sdkdocsys"
+version = "0.1.0"
+description = "Doc system for the Splunk Python SDK: change detection, content generation, coderef, quality loop."
+requires-python = ">=3.13"
+dependencies = [
+  "sphinx>=8.0",
+  "myst-parser>=4.0",
+  "ruff>=0.6",
+]
+
+[project.optional-dependencies]
+llm = ["anthropic>=0.40"]
+bedrock = ["boto3>=1.40"]  # Bedrock-compatible gateway (bearer token auth)
+# Mirrors the SDK's own [ai] extra so autodoc can import splunklib.ai for the reference.
+# Keep in sync with ../pyproject.toml (optional-dependencies.ai).
+reference = [
+  "httpx==0.28.1",
+  "langchain>=1.3.15",
+  "mcp>=1.30.0,<2.0.0",
+  "pydantic>=2.13.4",
+  "six>=1.17.0",
+]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+sdkdocsys = "sdkdocsys.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sdkdocsys"]
+
+[tool.pytest.ini_options]
+# splunklib lives one level up in the (untouched) SDK tree.
+pythonpath = ["src", ".."]
+testpaths = ["tests"]
+markers = ["live: needs a running Splunk (make docsys-examples-live)"]
+
+[tool.ruff]
+line-length = 100
+extend-exclude = ["_build"]
+
+[tool.ruff.lint]
+select = ["E", "F", "B", "UP", "SIM"]

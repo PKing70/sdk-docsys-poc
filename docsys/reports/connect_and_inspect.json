@@ -1,0 +1,166 @@
+{
+ "artifact": "connect_and_inspect",
+ "status": "accepted",
+ "reason": "all gates pass",
+ "score": 0.983,
+ "iterations": [
+  {
+   "n": 0,
+   "score": 0.955,
+   "gate_failures": [
+    "llm_rubric"
+   ],
+   "advisory_failures": [],
+   "skipped": [],
+   "action": "initial draft"
+  },
+  {
+   "n": 1,
+   "score": 0.983,
+   "gate_failures": [],
+   "advisory_failures": [],
+   "skipped": [],
+   "action": "revision kept (score +0.028)"
+  }
+ ],
+ "checks": [
+  {
+   "name": "parses",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": null,
+   "threshold": null,
+   "detail": ""
+  },
+  {
+   "name": "header_docstring",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": "ok",
+   "threshold": null,
+   "detail": "module docstring needs Goal:, Prerequisites:, Run:"
+  },
+  {
+   "name": "entrypoint",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": null,
+   "threshold": null,
+   "detail": "needs main() and an if __name__ == '__main__' guard (no work at import)"
+  },
+  {
+   "name": "regions_balanced",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": 3,
+   "threshold": ">=1",
+   "detail": "regions mark the lines docs pull in"
+  },
+  {
+   "name": "self_contained",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": "ok",
+   "threshold": null,
+   "detail": "copy/paste runnable: stdlib and splunklib only"
+  },
+  {
+   "name": "splunklib_symbols_exist",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": "ok",
+   "threshold": null,
+   "detail": "module-level API used must exist"
+  },
+  {
+   "name": "no_hardcoded_secrets",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": "ok",
+   "threshold": null,
+   "detail": ""
+  },
+  {
+   "name": "ruff_lint",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": null,
+   "threshold": null,
+   "detail": ""
+  },
+  {
+   "name": "ruff_format",
+   "category": "code",
+   "passed": true,
+   "severity": "advisory",
+   "value": null,
+   "threshold": null,
+   "detail": ""
+  },
+  {
+   "name": "length",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": 76,
+   "threshold": 90,
+   "detail": ""
+  },
+  {
+   "name": "region_length",
+   "category": "code",
+   "passed": true,
+   "severity": "advisory",
+   "value": 17,
+   "threshold": 30,
+   "detail": ""
+  },
+  {
+   "name": "complexity",
+   "category": "code",
+   "passed": true,
+   "severity": "advisory",
+   "value": 5,
+   "threshold": 12,
+   "detail": ""
+  },
+  {
+   "name": "env_config",
+   "category": "code",
+   "passed": true,
+   "severity": "advisory",
+   "value": null,
+   "threshold": null,
+   "detail": "connection settings should come from the environment"
+  },
+  {
+   "name": "llm_rubric",
+   "category": "judge",
+   "passed": true,
+   "severity": "gate",
+   "value": {
+    "accuracy": 4.0,
+    "clarity": 5.0,
+    "teaching_value": 4.0,
+    "completeness": 4.0
+   },
+   "threshold": 3.5,
+   "detail": ""
+  }
+ ],
+ "judge_issues": [
+  "service.jobs.oneshot is not in the supplied API facts; Service.search or Service.jobs are listed, but oneshot cannot be verified against them. Confirm or cite the method.",
+  "Docstring says 'connect, inspect, query' but never uses Service.info, capabilities, or restart_required; 'inspect' reads only version, apps, saved searches.",
+  "The `except OSError` clause may not catch every connection or TLS failure the SDK raises; exception coverage is asserted, not shown.",
+  "The `verify` kwarg to client.connect is not documented in the API facts (only **kwargs); its use and meaning are unexplained.",
+  "No guidance on the oneshot time range; with no earliest_time, the query may scan a large _internal index and run slowly."
+ ]
+}

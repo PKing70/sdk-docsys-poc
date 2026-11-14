@@ -1,0 +1,39 @@
+name: Doc system
+
+on:
+  push:
+    branches: [main]
+    paths: ["splunklib/**", "docs/**", "docsys/**", ".github/workflows/docsys.yml"]
+  pull_request:
+    paths: ["splunklib/**", "docs/**", "docsys/**", ".github/workflows/docsys.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docsys
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v5
+      - name: Install
+        run: uv sync --no-config --python 3.13 --extra dev --extra reference --extra llm
+      - name: Tests
+        run: uv run --no-config pytest -q
+      - name: Pipeline (diff, generate if keyed, quality loop, build)
+        env:
+          # Optional. Without it, generation and model review are skipped and reports say so.
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: uv run --no-config sdkdocsys ci
+      - uses: actions/upload-artifact@v4
+        with:
+          name: docs-site-and-reports
+          path: |
+            docsys/_build/html
+            docsys/reports

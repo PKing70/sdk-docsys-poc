@@ -1,0 +1,16 @@
+#!/bin/sh
+# Run a command with ANTHROPIC_API_KEY loaded from the macOS Keychain.
+# The key is passed to the child process only. It is never printed or written to a file.
+#
+#   bin/with-key uv run --no-config sdkdocsys review
+#
+# One-time setup (you paste the key at the prompt, so it never appears in history or argv):
+#   security add-generic-password -a "$USER" -s docsys-anthropic -U -w
+set -eu
+if ! KEY="$(security find-generic-password -a "$USER" -s docsys-anthropic -w 2>/dev/null)"; then
+  echo "with-key: no 'docsys-anthropic' item in the Keychain. See README, Credentials." >&2
+  exit 1
+fi
+export ANTHROPIC_API_KEY="$KEY"
+unset KEY
+exec "$@"

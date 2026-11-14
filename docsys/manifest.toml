@@ -1,0 +1,104 @@
+# The doc plan. Each entry says what a page or example covers; the pipeline uses `covers`
+# to decide what an SDK change affects, and `key_symbols` to enforce coverage.
+# `key_symbols` must be named in the page prose AND exercised by one of its examples.
+# `uses` names the symbols an example exercises; the reviewer is shown their docstrings.
+
+[[example]]
+id = "connect_and_inspect"
+path = "examples/connect_and_inspect.py"
+goal = "Open an authenticated session, handle the common failures, and read basic facts."
+covers = ["splunklib.client.connect", "splunklib.client.Service",
+          "splunklib.binding.AuthenticationError"]
+uses = ["connect", "Service.splunk_version", "Service.info", "Service.apps",
+        "Service.restart_required"]
+
+[[example]]
+id = "oneshot_search"
+path = "examples/oneshot_search.py"
+goal = "Run a bounded statistics search, stream the results, and separate rows from messages."
+covers = ["splunklib.client.connect", "splunklib.client.Jobs", "splunklib.results"]
+uses = ["connect", "Jobs.oneshot", "JSONResultsReader", "Message"]
+
+[[example]]
+id = "poll_search_job"
+path = "examples/poll_search_job.py"
+goal = "Run a long search as a job: create it, poll with a timeout, read results, clean up."
+covers = ["splunklib.client.connect", "splunklib.client.Jobs", "splunklib.client.Job",
+          "splunklib.results"]
+uses = ["Jobs.create", "Job.is_done", "Job.results", "Job.finalize", "Job.cancel"]
+
+[[example]]
+id = "send_and_find_events"
+path = "examples/send_and_find_events.py"
+goal = "Create an index, submit events to it, and search for them, then clean up safely."
+covers = ["splunklib.client.connect", "splunklib.client.Indexes", "splunklib.client.Index",
+          "splunklib.client.Collection", "splunklib.client.Jobs"]
+uses = ["Collection.create", "Index.submit", "Index.attach", "Jobs.oneshot"]
+
+[[example]]
+id = "kvstore_notes"
+path = "examples/kvstore_notes.py"
+goal = "Store, query, update, and delete documents in a KV Store collection."
+covers = ["splunklib.client.connect", "splunklib.client.KVStoreCollections",
+          "splunklib.client.KVStoreCollection", "splunklib.client.KVStoreCollectionData",
+          "splunklib.client.Collection"]
+uses = ["KVStoreCollectionData.insert", "KVStoreCollectionData.query",
+        "KVStoreCollectionData.update", "KVStoreCollectionData.query_by_id",
+        "KVStoreCollectionData.delete"]
+
+[[page]]
+id = "concept-connecting"
+kind = "concept"
+path = "concepts/connecting.md"
+title = "How the SDK connects to Splunk"
+brief = "What connect() does, how authentication and namespaces work, when to use autologin."
+covers = ["splunklib.client.connect", "splunklib.client.Service", "splunklib.binding"]
+key_symbols = ["splunklib.client.connect", "splunklib.client.Service"]
+examples = ["connect_and_inspect"]
+
+[[page]]
+id = "concept-search-lifecycle"
+kind = "concept"
+path = "concepts/search-lifecycle.md"
+title = "How searches run: oneshot and jobs"
+brief = "The two search styles, why a job has a lifecycle, how results are streamed and parsed."
+covers = ["splunklib.client.Jobs", "splunklib.client.Job", "splunklib.results"]
+key_symbols = ["splunklib.client.Jobs.oneshot", "splunklib.client.Jobs.create",
+               "splunklib.client.Job.is_done", "splunklib.results.JSONResultsReader"]
+examples = ["oneshot_search", "poll_search_job"]
+
+[[page]]
+id = "procedure-first-search"
+kind = "procedure"
+path = "procedures/run-first-search.md"
+title = "Run your first search"
+brief = "Run a oneshot statistics search from a script and read rows and messages."
+covers = ["splunklib.client.Jobs.oneshot", "splunklib.results"]
+key_symbols = ["splunklib.client.Jobs.oneshot", "splunklib.results.JSONResultsReader",
+               "splunklib.results.Message"]
+examples = ["oneshot_search"]
+
+[[page]]
+id = "procedure-send-and-find"
+kind = "procedure"
+path = "procedures/send-and-find-events.md"
+title = "Send events to an index and find them"
+brief = "Create an index, submit events, search for them, and clean up only what you created."
+covers = ["splunklib.client.Indexes", "splunklib.client.Index", "splunklib.client.Collection",
+          "splunklib.client.Jobs.oneshot"]
+key_symbols = ["splunklib.client.Collection.create", "splunklib.client.Index.submit",
+               "splunklib.client.Jobs.oneshot"]
+examples = ["send_and_find_events"]
+
+[[page]]
+id = "procedure-kvstore"
+kind = "procedure"
+path = "procedures/store-data-in-kvstore.md"
+title = "Store and query data in the KV Store"
+brief = "Create a collection, insert, query, update, and delete documents, then clean up."
+covers = ["splunklib.client.KVStoreCollections", "splunklib.client.KVStoreCollection",
+          "splunklib.client.KVStoreCollectionData"]
+key_symbols = ["splunklib.client.KVStoreCollectionData.insert",
+               "splunklib.client.KVStoreCollectionData.query",
+               "splunklib.client.KVStoreCollectionData.delete"]
+examples = ["kvstore_notes"]

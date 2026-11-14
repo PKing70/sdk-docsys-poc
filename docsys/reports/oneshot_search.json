@@ -1,0 +1,168 @@
+{
+ "artifact": "oneshot_search",
+ "status": "needs_human_plateau",
+ "reason": "gain +0.017 below 0.02; gates still fail",
+ "score": 0.977,
+ "iterations": [
+  {
+   "n": 0,
+   "score": 0.96,
+   "gate_failures": [
+    "llm_rubric"
+   ],
+   "advisory_failures": [],
+   "skipped": [],
+   "action": "initial draft"
+  },
+  {
+   "n": 1,
+   "score": 0.977,
+   "gate_failures": [
+    "llm_rubric"
+   ],
+   "advisory_failures": [],
+   "skipped": [],
+   "action": "revision kept (score +0.017)"
+  }
+ ],
+ "checks": [
+  {
+   "name": "parses",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": null,
+   "threshold": null,
+   "detail": ""
+  },
+  {
+   "name": "header_docstring",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": "ok",
+   "threshold": null,
+   "detail": "module docstring needs Goal:, Prerequisites:, Run:"
+  },
+  {
+   "name": "entrypoint",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": null,
+   "threshold": null,
+   "detail": "needs main() and an if __name__ == '__main__' guard (no work at import)"
+  },
+  {
+   "name": "regions_balanced",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": 2,
+   "threshold": ">=1",
+   "detail": "regions mark the lines docs pull in"
+  },
+  {
+   "name": "self_contained",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": "ok",
+   "threshold": null,
+   "detail": "copy/paste runnable: stdlib and splunklib only"
+  },
+  {
+   "name": "splunklib_symbols_exist",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": "ok",
+   "threshold": null,
+   "detail": "module-level API used must exist"
+  },
+  {
+   "name": "no_hardcoded_secrets",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": "ok",
+   "threshold": null,
+   "detail": ""
+  },
+  {
+   "name": "ruff_lint",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": null,
+   "threshold": null,
+   "detail": ""
+  },
+  {
+   "name": "ruff_format",
+   "category": "code",
+   "passed": true,
+   "severity": "advisory",
+   "value": null,
+   "threshold": null,
+   "detail": ""
+  },
+  {
+   "name": "length",
+   "category": "code",
+   "passed": true,
+   "severity": "gate",
+   "value": 74,
+   "threshold": 90,
+   "detail": ""
+  },
+  {
+   "name": "region_length",
+   "category": "code",
+   "passed": true,
+   "severity": "advisory",
+   "value": 17,
+   "threshold": 30,
+   "detail": ""
+  },
+  {
+   "name": "complexity",
+   "category": "code",
+   "passed": true,
+   "severity": "advisory",
+   "value": 5,
+   "threshold": 12,
+   "detail": ""
+  },
+  {
+   "name": "env_config",
+   "category": "code",
+   "passed": true,
+   "severity": "advisory",
+   "value": null,
+   "threshold": null,
+   "detail": "connection settings should come from the environment"
+  },
+  {
+   "name": "llm_rubric",
+   "category": "judge",
+   "passed": false,
+   "severity": "gate",
+   "value": {
+    "accuracy": 4.0,
+    "clarity": 5.0,
+    "teaching_value": 4.0,
+    "completeness": 3.0
+   },
+   "threshold": 3.5,
+   "detail": "below threshold: completeness"
+  }
+ ],
+ "judge_issues": [
+  "Default query is described as `search index=_internal | stats count by sourcetype`, but DEFAULT_QUERY adds `| sort - count`; the Run usage line and code disagree.",
+  "Claims oneshot 'creates no job you have to clean up' and 'default cap is 100 rows' are not in the API facts; the 100-row default is actually 100 for oneshot only by convention and is unverified here.",
+  "Only HTTPError wraps the search; the read loop can raise parsing/network errors, and closing() isn't paired with exception handling. Bad SPL may surface during iteration rather than at call time.",
+  "Does not demonstrate or contrast Jobs.export or Jobs.create with code, though it mentions them; the 'separate result rows from messages' goal is shown only superficially.",
+  "Imports AuthenticationError and HTTPError from splunklib.binding, which is outside the supplied API facts, and `Message.type`/`.message` attributes are used without being confirmed."
+ ]
+}

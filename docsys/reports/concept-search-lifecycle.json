@@ -1,0 +1,169 @@
+{
+ "artifact": "concept-search-lifecycle",
+ "status": "needs_human_plateau",
+ "reason": "revision did not improve the best draft; stopped",
+ "score": 0.955,
+ "iterations": [
+  {
+   "n": 0,
+   "score": 0.955,
+   "gate_failures": [
+    "llm_rubric"
+   ],
+   "advisory_failures": [],
+   "skipped": [],
+   "action": "initial draft"
+  },
+  {
+   "n": 1,
+   "score": 0.869,
+   "gate_failures": [
+    "banned_terms",
+    "llm_rubric"
+   ],
+   "advisory_failures": [],
+   "skipped": [],
+   "action": "revision discarded (score -0.085)"
+  }
+ ],
+ "checks": [
+  {
+   "name": "no_embedded_code",
+   "category": "prose",
+   "passed": true,
+   "severity": "gate",
+   "value": 0,
+   "threshold": 0,
+   "detail": "code must live in examples/ and be pulled in with coderef"
+  },
+  {
+   "name": "banned_terms",
+   "category": "prose",
+   "passed": true,
+   "severity": "gate",
+   "value": 0,
+   "threshold": 0,
+   "detail": "weasel words and em-dashes are not allowed"
+  },
+  {
+   "name": "single_h1",
+   "category": "prose",
+   "passed": true,
+   "severity": "gate",
+   "value": 1,
+   "threshold": 1,
+   "detail": ""
+  },
+  {
+   "name": "required_sections",
+   "category": "prose",
+   "passed": true,
+   "severity": "gate",
+   "value": "ok",
+   "threshold": "how it works, when to use",
+   "detail": "concept pages need these sections"
+  },
+  {
+   "name": "flesch_reading_ease",
+   "category": "prose",
+   "passed": true,
+   "severity": "gate",
+   "value": 83.0,
+   "threshold": 30,
+   "detail": ""
+  },
+  {
+   "name": "fk_grade",
+   "category": "prose",
+   "passed": true,
+   "severity": "advisory",
+   "value": 5.0,
+   "threshold": 13,
+   "detail": ""
+  },
+  {
+   "name": "avg_sentence_words",
+   "category": "prose",
+   "passed": true,
+   "severity": "advisory",
+   "value": 13.3,
+   "threshold": 24,
+   "detail": ""
+  },
+  {
+   "name": "max_sentence_words",
+   "category": "prose",
+   "passed": true,
+   "severity": "advisory",
+   "value": 26,
+   "threshold": 45,
+   "detail": ""
+  },
+  {
+   "name": "coderef_resolves",
+   "category": "prose",
+   "passed": true,
+   "severity": "gate",
+   "value": "ok",
+   "threshold": null,
+   "detail": ""
+  },
+  {
+   "name": "has_code_examples",
+   "category": "prose",
+   "passed": true,
+   "severity": "advisory",
+   "value": 2,
+   "threshold": 1,
+   "detail": ""
+  },
+  {
+   "name": "symbol_refs_exist",
+   "category": "coverage",
+   "passed": true,
+   "severity": "gate",
+   "value": "ok",
+   "threshold": null,
+   "detail": "every `splunklib.x.y` in the text must exist in the API snapshot"
+  },
+  {
+   "name": "key_symbols_explained",
+   "category": "coverage",
+   "passed": true,
+   "severity": "gate",
+   "value": "ok",
+   "threshold": null,
+   "detail": "manifest key_symbols named in the prose"
+  },
+  {
+   "name": "key_symbols_exercised",
+   "category": "coverage",
+   "passed": true,
+   "severity": "gate",
+   "value": "ok",
+   "threshold": null,
+   "detail": "manifest key_symbols used by an example"
+  },
+  {
+   "name": "llm_rubric",
+   "category": "judge",
+   "passed": false,
+   "severity": "gate",
+   "value": {
+    "accuracy": 3.0,
+    "clarity": 3.0,
+    "teaching_value": 3.0,
+    "completeness": 3.0
+   },
+   "threshold": 3.5,
+   "detail": "below threshold: accuracy, clarity, teaching_value, completeness"
+  }
+ ],
+ "judge_issues": [
+  "\"Both styles return a raw stream\" is wrong: Jobs.create returns a Job. Only Jobs.oneshot and Job.results return streams, and the text never shows calling Job.results.",
+  "Prose says to cancel the job when the deadline passes, but the poll code raises SystemExit without calling job.cancel(), leaving the job running.",
+  "The claim that is_done is only meaningful after is_ready, and that checking both keeps state fresh, is unsupported by the API facts. The combined loop condition is redundant and misleading.",
+  "No snippet passes output_mode=\"json\" to oneshot or Job.results, so the reader setup is incomplete. The `closing` import and the stream's origin are also missing.",
+  "The tradeoffs omit Jobs.export for large streaming results, and Job.set_ttl and Job.pause for managing job lifetime and resources."
+ ]
+}

@@ -1,0 +1,168 @@
+{
+ "artifact": "concept-connecting",
+ "status": "needs_human_plateau",
+ "reason": "revision did not improve the best draft; stopped",
+ "score": 0.96,
+ "iterations": [
+  {
+   "n": 0,
+   "score": 0.96,
+   "gate_failures": [
+    "llm_rubric"
+   ],
+   "advisory_failures": [],
+   "skipped": [],
+   "action": "initial draft"
+  },
+  {
+   "n": 1,
+   "score": 0.949,
+   "gate_failures": [
+    "llm_rubric"
+   ],
+   "advisory_failures": [],
+   "skipped": [],
+   "action": "revision discarded (score -0.011)"
+  }
+ ],
+ "checks": [
+  {
+   "name": "no_embedded_code",
+   "category": "prose",
+   "passed": true,
+   "severity": "gate",
+   "value": 0,
+   "threshold": 0,
+   "detail": "code must live in examples/ and be pulled in with coderef"
+  },
+  {
+   "name": "banned_terms",
+   "category": "prose",
+   "passed": true,
+   "severity": "gate",
+   "value": 0,
+   "threshold": 0,
+   "detail": "weasel words and em-dashes are not allowed"
+  },
+  {
+   "name": "single_h1",
+   "category": "prose",
+   "passed": true,
+   "severity": "gate",
+   "value": 1,
+   "threshold": 1,
+   "detail": ""
+  },
+  {
+   "name": "required_sections",
+   "category": "prose",
+   "passed": true,
+   "severity": "gate",
+   "value": "ok",
+   "threshold": "how it works, when to use",
+   "detail": "concept pages need these sections"
+  },
+  {
+   "name": "flesch_reading_ease",
+   "category": "prose",
+   "passed": true,
+   "severity": "gate",
+   "value": 76.9,
+   "threshold": 30,
+   "detail": ""
+  },
+  {
+   "name": "fk_grade",
+   "category": "prose",
+   "passed": true,
+   "severity": "advisory",
+   "value": 5.4,
+   "threshold": 13,
+   "detail": ""
+  },
+  {
+   "name": "avg_sentence_words",
+   "category": "prose",
+   "passed": true,
+   "severity": "advisory",
+   "value": 11.6,
+   "threshold": 24,
+   "detail": ""
+  },
+  {
+   "name": "max_sentence_words",
+   "category": "prose",
+   "passed": true,
+   "severity": "advisory",
+   "value": 22,
+   "threshold": 45,
+   "detail": ""
+  },
+  {
+   "name": "coderef_resolves",
+   "category": "prose",
+   "passed": true,
+   "severity": "gate",
+   "value": "ok",
+   "threshold": null,
+   "detail": ""
+  },
+  {
+   "name": "has_code_examples",
+   "category": "prose",
+   "passed": true,
+   "severity": "advisory",
+   "value": 2,
+   "threshold": 1,
+   "detail": ""
+  },
+  {
+   "name": "symbol_refs_exist",
+   "category": "coverage",
+   "passed": true,
+   "severity": "gate",
+   "value": "ok",
+   "threshold": null,
+   "detail": "every `splunklib.x.y` in the text must exist in the API snapshot"
+  },
+  {
+   "name": "key_symbols_explained",
+   "category": "coverage",
+   "passed": true,
+   "severity": "gate",
+   "value": "ok",
+   "threshold": null,
+   "detail": "manifest key_symbols named in the prose"
+  },
+  {
+   "name": "key_symbols_exercised",
+   "category": "coverage",
+   "passed": true,
+   "severity": "gate",
+   "value": "ok",
+   "threshold": null,
+   "detail": "manifest key_symbols used by an example"
+  },
+  {
+   "name": "llm_rubric",
+   "category": "judge",
+   "passed": false,
+   "severity": "gate",
+   "value": {
+    "accuracy": 3.0,
+    "clarity": 4.0,
+    "teaching_value": 3.0,
+    "completeness": 3.0
+   },
+   "threshold": 3.5,
+   "detail": "below threshold: accuracy, teaching_value, completeness"
+  }
+ ],
+ "judge_issues": [
+  "The facts list splunklib.client.connect(**kwargs) but give no parameter defaults, token/cookie options, or autologin behavior. Claims about localhost/8089/https defaults, autologin, and token/cookie are unverified.",
+  "The explanation that connect sends credentials and stores a session token in one round trip is unsupported by the facts; the facts only show Context.login/connect.",
+  "The snippet uses AuthenticationError and `client` without imports, though the facts place AuthenticationError in splunklib.binding. As written, the except clause would raise NameError.",
+  "The claim that an object saved in the `search` app is invisible from another app oversimplifies namespace and sharing. Sharing levels like global or system make objects visible across apps.",
+  "The 'inside a Splunk app' advice is vague. It never names how to build a Service from an existing session, and the facts show no API for it."
+ ]
+}
