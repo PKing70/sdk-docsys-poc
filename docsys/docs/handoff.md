@@ -12,7 +12,12 @@ builds one site that combines those guides with the existing Sphinx API referenc
 
 ## Start here
 
-The earlier chat's working folder is temporary, so start from a fresh clone in a permanent place:
+Two kinds of chats can follow this one:
+
+- **A pitch or understanding chat** (explaining the project, drill-down questions, slides). Paste this
+  file and `docs/overview/one-pager.md` into the chat. No clone is needed.
+- **A build chat** (changing code, running tests, finishing v0.1). It needs the repository on disk,
+  because the earlier chat's working folder was temporary. Clone it into a permanent place first:
 
 ```bash
 git clone git@github.com:PKing70/sdk-docsys-poc.git
@@ -96,7 +101,14 @@ so prefer fresh, short sessions and use background agents for large reads.
 3. Decide on live example validation and the license question.
 4. Fold in the user's feature list from the roadmap parking lot, then plan v0.2.
 
-## Starter prompt for the new chat
+## Starter prompts for the new chat
+
+For a pitch or understanding chat, after pasting this file and the one-pager:
+
+> I'm continuing the docsys project. I've pasted the handoff and the one-pager. Use only those unless
+> I paste more. Today I want to <say what you want to do>.
+
+For a build chat, from the cloned folder:
 
 > I'm continuing the docsys project. Read `docsys/docs/handoff.md` first, then
 > `docsys/docs/overview/one-pager.md`. Don't read other files unless needed. Today I want to
