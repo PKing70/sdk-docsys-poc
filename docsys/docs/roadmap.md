@@ -72,7 +72,8 @@ Observed on the live site (rendered pages reviewed; authoring system not visible
   step pages, and a summary page, each step ending with a Review recap.
 - Code appears inline, with copy buttons, and also in linked GitHub repositories. External
   references link to reference docs.
-- The content looks client-rendered from a content system. The source format is not visible.
+- The source is Markdown (confirmed by the content owner). The pages render client-side, so the
+  published HTML does not show the Markdown flavor, front matter, or how code is included.
 
 How our skeletons compare:
 
@@ -87,7 +88,17 @@ Other notes:
   it. That is a tone decision to settle.
 - Several existing how-to pages overlap our procedures (connect, run searches, get data). The
   generator needs an "update an existing page" mode, not only "write a new page".
-- Because the site shows code inline, a publish step must expand `coderef` into inline code.
+- Our pages use a MyST directive (`coderef`) that is not standard Markdown, and the site shows code
+  inline. Publishing therefore means translating our pages: expand `coderef` into fenced code, and
+  map callouts and front matter to the site's flavor.
+
+Questions to settle with the content owner:
+1. Which Markdown flavor and build tool does the site use (plain CommonMark, MDX, a static-site generator)?
+2. What front matter does a page need (title, description, ordering, tags)?
+3. How are code samples included: fenced blocks only, or an include or snippet mechanism that could replace our translation?
+4. How are callouts (Tip, Info), images, and navigation or table-of-contents entries written?
+5. Where does the content repository live, and what is the review process for a pull request into it?
+6. Can we have two or three real source files (a concept, a how-to, a tutorial) to derive templates from source, not from rendered pages?
 
 ## What this means for v0.1
 
@@ -102,7 +113,8 @@ Cheap additions to consider in v0.1: a `destination` field and a `type` that inc
 ## v0.2 candidates
 
 - Reference build for GitHub Pages: theme, versioned builds from tags, CI deploy.
-- Publish stage for dev.splunk.com: confirm the intake format first, then convert and inline code.
+- Publish stage for dev.splunk.com: the source is Markdown, so translate our pages (expand `coderef`
+  into fenced code, map callouts and front matter) and open a pull request into the content repository.
 - Tutorial type and a how-to hub page, from the template findings.
 - Update-in-place mode for existing pages.
 - Template-driven prompts per content type.
