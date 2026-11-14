@@ -1,0 +1,103 @@
+# Handoff: read this first in a new chat
+
+Last updated: 2026-11-14. Repository: the private GitHub repo `PKing70/sdk-docsys-poc`, branch `main`.
+
+## What this is
+
+`docsys/` is a documentation system added next to an unmodified copy of the Splunk Python SDK. When the
+SDK's public API changes, it works out which docs are affected, drafts concept and how-to pages and
+runnable examples with a model, keeps the example code in separate, automatically checked files that pages pull in at
+build time, and runs a bounded quality loop that produces a justification report for each page. It
+builds one site that combines those guides with the existing Sphinx API reference.
+
+## Start here
+
+The earlier chat's working folder is temporary, so start from a fresh clone in a permanent place:
+
+```bash
+git clone git@github.com:PKing70/sdk-docsys-poc.git
+cd sdk-docsys-poc/docsys
+uv sync --python 3.13 --extra dev --extra reference --extra llm
+uv run pytest -q          # expect 43 passed
+uv run sdkdocsys check    # deterministic gates, no model needed
+```
+
+## Where things are
+
+| Need | File |
+|---|---|
+| Requirements, architecture, quality loop | `docsys/docs/requirements.md`, `architecture.md`, `quality-loop.md` |
+| Roadmap and v0.2 ideas | `docsys/docs/roadmap.md` |
+| What we reuse, adapt, or build, and why | `docsys/docs/reuse-decisions.md` |
+| Non-technical briefs for pitches | `docsys/docs/overview/` |
+| SDK documentation errors we found | `docsys/reports/sdk-doc-findings.md` |
+| The doc plan | `docsys/manifest.toml` |
+| Quality thresholds | `docsys/quality.toml` |
+
+## Credentials and model access
+
+- Never put a key in a file, a command line, or the repo. A secret-scan test enforces this.
+- The personal Anthropic key lives in the macOS Keychain item `docsys-anthropic`. Run anything that
+  needs it through `docsys/bin/with-key`, for example `bin/with-key uv run sdkdocsys review`.
+- Do not read the user's clipboard or load a secret for them unless they ask for that exact thing.
+  Give setup steps and let them run the commands. This is a standing preference.
+- The personal key is funded with $20 and auto-reload is off. About $1.3 had been used at this point.
+  Every model-using command prints a usage line, so spend is visible.
+- The corporate route for model access is pending an access-group approval. Until then, use the
+  personal key. The provider interface is swappable (`llm.py`), and the corporate route needs only a
+  token and a gateway URL.
+- Do not add the key to GitHub secrets yet. The workflow would run the model on every push.
+
+## Decisions already made
+
+- The SDK stays unmodified. All additions live in `docsys/` and one workflow file. The first two
+  commits show this: the unmodified SDK, then our additions.
+- Code examples are separate `.py` files with named regions, pulled into pages by the `coderef`
+  directive. Pages contain no embedded code.
+- Quality has gates (block acceptance) and advisory checks (lower the score). A skipped check is
+  reported as skipped, never as passed.
+- Output goes to two destinations later: reference to GitHub Pages, guides to the developer site,
+  which is Markdown-sourced. See the roadmap.
+- Commits use the GitHub noreply address, not a work email. Push only when the user says so.
+
+## State of v0.1
+
+Done: API snapshot and diff, change routing, `coderef`, deterministic checks, the reviewer, the bounded
+loop with reports, five examples and five guides, the read-only `review` command, the usage meter, tests,
+a secret scan, and the private repo.
+
+Not done:
+- The improve loop edits files in place. It should write proposals instead. This caused a real
+  contamination bug once.
+- No from-scratch generation run has been done with a real model.
+- Examples have never run against a live Splunk. The SDK's compose file auto-accepts a license, so the
+  user must decide first.
+- The last small edits to three files were not re-reviewed by the model.
+- CI runs the whole pipeline on every push. Add cost controls before a key goes in.
+- The corporate model provider has only run against a fake client.
+
+## Gotchas learned
+
+- Pushing from a shallow clone failed. The history was rebuilt as an unmodified baseline commit plus ours.
+- The SDK's own workflows are disabled in the repo settings, and its Dependabot config was removed.
+- The reviewer only sees what we give it. Give it docstrings for key symbols and the code inside pages.
+- Some SDK docstrings are wrong, which can make accurate content score low on accuracy.
+
+## How the user likes to work
+
+Plain explanations first, with short answers. Ask before publishing or pushing anything. Prefer
+checking claims against the source over trusting a score. The user is cost-conscious about long chats,
+so prefer fresh, short sessions and use background agents for large reads.
+
+## Next steps, in order
+
+1. Write the pitch briefs with the user, using `docs/overview/` as the base.
+2. Finish v0.1: non-destructive loop, first generation run with the usage meter, CI cost controls.
+3. Decide on live example validation and the license question.
+4. Fold in the user's feature list from the roadmap parking lot, then plan v0.2.
+
+## Starter prompt for the new chat
+
+> I'm continuing the docsys project. Read `docsys/docs/handoff.md` first, then
+> `docsys/docs/overview/one-pager.md`. Don't read other files unless needed. Today I want to
+> <say what you want to do>.
