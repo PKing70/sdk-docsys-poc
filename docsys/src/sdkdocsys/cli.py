@@ -194,6 +194,11 @@ def _overlay_root(revised: dict[str, str]) -> Path:
     return view
 
 
+def _focus(page: dict, text: str, snap: api.Snapshot) -> list[str]:
+    """Symbols whose docstrings the reviewer gets: the key symbols plus any the page names."""
+    return list(dict.fromkeys([*page.get("key_symbols", []), *quality.named_symbols(text, snap)]))
+
+
 def _scope_line(llm, scope: set[str] | None, exs: list[dict], pages: list[dict]) -> str:
     if llm is None:
         return "SKIPPED (no LLM_GATEWAY_TOKEN or ANTHROPIC_API_KEY)"
@@ -328,8 +333,8 @@ def cmd_loop(args: argparse.Namespace) -> int:
             rep = quality.check_page(text, page, cfg, snap, view, by_id)
             chk, issues = quality.judge(
                 use,
-                quality.expand_coderefs(text, view),
-                quality.api_facts(snap, page["covers"], focus=page.get("key_symbols")),
+                quality.reviewer_text(text, view),
+                quality.api_facts(snap, page["covers"], focus=_focus(page, text, snap)),
                 cfg,
                 skip_reason=skip_reason,
             )
@@ -510,8 +515,8 @@ def cmd_review(args: argparse.Namespace) -> int:
         rep = quality.check_page(text, page, cfg, snap, ROOT, by_id)
         chk, issues = quality.judge(
             llm,
-            quality.expand_coderefs(text, ROOT),
-            quality.api_facts(snap, page["covers"], focus=page.get("key_symbols")),
+            quality.reviewer_text(text, ROOT),
+            quality.api_facts(snap, page["covers"], focus=_focus(page, text, snap)),
             cfg,
         )
         _save_review(out_dir, page["id"], rep, chk, issues)
@@ -533,6 +538,9 @@ def _save_review(
         "",
     ]
     lines += [f"{n}. {i}" for n, i in enumerate(issues, 1)] or ["(none)"]
+    if chk.notes:
+        lines += ["", "## Needs SME confirmation (not scored as errors)", ""]
+        lines += [f"- {n}" for n in chk.notes]
     (out_dir / f"{name}.md").write_text("\n".join(lines) + "\n")
 
 
