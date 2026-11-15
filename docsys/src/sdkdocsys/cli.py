@@ -60,7 +60,43 @@ def cmd_diff(_: argparse.Namespace) -> int:
     return 0
 
 
+def _generate(args: argparse.Namespace, llm) -> dict[str, str]:
+    """Draft affected examples and pages with the model. Writes proposals, never originals.
+
+    Returns the generated texts by path relative to ROOT, so ``loop`` can improve them in the
+    same run without reading stale files. Examples go first, and pages are drafted against the
+    new examples so they cite real regions.
+    """
+    manifest, snap, base = generate.load_manifest(MANIFEST), _current(), api.load(BASELINE)
+    changed = None if (args.all or base is None) else api.changed_symbols(api.diff(base, snap))
+    pages, examples = generate.affected(manifest, changed)
+    if args.page:
+        pages = [p for p in pages if p["id"] == args.page]
+        examples = []
+    made: dict[str, str] = {}  # every generated text, changed or not
+    revised: dict[str, str] = {}  # only texts that differ from the original
+    for ex in examples:
+        path = ROOT / ex["path"]
+        text = generate.generate_example(llm, ex, snap, _read(path))
+        made[ex["path"]] = text
+        _proposal_writer(path, _read(path), revised)(text)
+        print(f"example {'proposed' if ex['path'] in revised else 'unchanged'}: {ex['path']}")
+    view = _overlay_root(revised)
+    for page in pages:
+        path = ROOT / "content" / page["path"]
+        text = generate.generate_page(llm, page, manifest, snap, view, _read(path))
+        rel = f"content/{page['path']}"
+        made[rel] = text
+        _proposal_writer(path, _read(path), revised)(text)
+        print(f"page {'proposed' if rel in revised else 'unchanged'}: {rel}")
+    shutil.rmtree(STAGE, ignore_errors=True)
+    if revised:
+        print(f"proposals written under {PROPOSED} (originals untouched). See `sdkdocsys adopt`.")
+    return made
+
+
 def cmd_generate(args: argparse.Namespace) -> int:
+    """Draft affected pages and examples with the model, as proposals under proposed/."""
     llm = get_llm()
     if llm is None:
         print(
@@ -68,25 +104,13 @@ def cmd_generate(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 2
-    manifest, snap, base = generate.load_manifest(MANIFEST), _current(), api.load(BASELINE)
-    changed = None if (args.all or base is None) else api.changed_symbols(api.diff(base, snap))
-    pages, examples = generate.affected(manifest, changed)
-    if args.page:
-        pages = [p for p in pages if p["id"] == args.page]
-        examples = []
-    for ex in examples:  # examples first: pages cite their regions
-        path = ROOT / ex["path"]
-        cur = path.read_text() if path.exists() else None
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(generate.generate_example(llm, ex, snap, cur))
-        print(f"example written: {ex['path']}")
-    for page in pages:
-        path = ROOT / "content" / page["path"]
-        cur = path.read_text() if path.exists() else None
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(generate.generate_page(llm, page, manifest, snap, ROOT, cur))
-        print(f"page written: content/{page['path']}")
+    _generate(args, llm)
     return 0
+
+
+def _read(path: Path) -> str | None:
+    """Text of an existing file, or None when it does not exist yet (a planned artifact)."""
+    return path.read_text() if path.is_file() else None
 
 
 def _artifacts(args: argparse.Namespace):
@@ -128,13 +152,14 @@ def cmd_check(args: argparse.Namespace) -> int:
 
 
 def _proposal_writer(
-    src: Path, original: str, sink: dict[str, str] | None = None
+    src: Path, original: str | None, sink: dict[str, str] | None = None
 ) -> Callable[[str], None]:
     """Return a writer that saves text under ``proposed/``, mirroring ``src``'s path in ROOT.
 
     The source file is never touched. Unchanged text writes nothing, and an existing proposal
     is only replaced when the loop produces a new one. ``sink`` records each changed text by
-    its path relative to ROOT, so later artifacts can be checked against it.
+    its path relative to ROOT, so later artifacts can be checked against it. ``original`` is
+    None for an artifact whose file does not exist yet, so any text counts as a change.
     """
     rel = src.relative_to(ROOT)
     dest = PROPOSED / rel
@@ -180,10 +205,18 @@ def cmd_loop(args: argparse.Namespace) -> int:
     lp = cfg["loop"]
     outcomes: list[loop.Outcome] = []
     revised: dict[str, str] = {}
+    seeds: dict[str, str] = getattr(args, "seeds", None) or {}  # drafts from this run's generate
+
+    def start_of(rel: str, path: Path) -> str | None:
+        return seeds.get(rel, _read(path))
 
     for ex in exs:
         path = ROOT / ex["path"]
-        write = _proposal_writer(path, path.read_text(), revised)
+        first = start_of(ex["path"], path)
+        if first is None:
+            print(f"skipped {ex['id']}: {ex['path']} does not exist yet (run generate)")
+            continue
+        write = _proposal_writer(path, _read(path), revised)
         stage = STAGE / ex["path"]
 
         def measure(text: str, ex=ex, stage=stage):
@@ -206,7 +239,7 @@ def cmd_loop(args: argparse.Namespace) -> int:
         outcomes.append(
             loop.run(
                 ex["id"],
-                read=path.read_text,
+                read=lambda first=first: first,
                 write=write,
                 measure=measure,
                 revise=revise,
@@ -218,7 +251,12 @@ def cmd_loop(args: argparse.Namespace) -> int:
     view = _overlay_root(revised)
     for page in pages:
         path = ROOT / "content" / page["path"]
-        write = _proposal_writer(path, path.read_text())
+        rel = f"content/{page['path']}"
+        first = start_of(rel, path)
+        if first is None:
+            print(f"skipped {page['id']}: {rel} does not exist yet (run generate)")
+            continue
+        write = _proposal_writer(path, _read(path))
 
         def measure(text: str, page=page):
             rep = quality.check_page(text, page, cfg, snap, view, by_id)
@@ -243,7 +281,7 @@ def cmd_loop(args: argparse.Namespace) -> int:
         outcomes.append(
             loop.run(
                 page["id"],
-                read=path.read_text,
+                read=lambda first=first: first,
                 write=write,
                 measure=measure,
                 revise=revise,
@@ -281,9 +319,13 @@ def _gate_failures() -> dict[str, set[str]]:
     by_id = {e["id"]: e for e in manifest["example"]}
     out: dict[str, set[str]] = {}
     for e in manifest["example"]:
+        if not (ROOT / e["path"]).is_file():
+            continue  # planned, not written yet: it has no gates to fail until it is adopted
         rep = quality.check_example(ROOT / e["path"], cfg, snap)
         out[e["id"]] = {c.name for c in rep.failing if c.severity == "gate"}
     for p in manifest["page"]:
+        if not (ROOT / "content" / p["path"]).is_file():
+            continue
         text = (ROOT / "content" / p["path"]).read_text()
         rep = quality.check_page(text, p, cfg, snap, ROOT, by_id)
         out[p["id"]] = {c.name for c in rep.failing if c.severity == "gate"}
@@ -291,14 +333,17 @@ def _gate_failures() -> dict[str, set[str]]:
 
 
 def _pending() -> dict[str, tuple[Path, Path]]:
-    """Artifact id -> (original, proposal) for every proposal that differs from its original."""
+    """Artifact id -> (original, proposal) for every proposal that is new or differs.
+
+    The original path may not exist yet (a newly generated artifact).
+    """
     manifest = generate.load_manifest(MANIFEST)
     found: dict[str, tuple[Path, Path]] = {}
     for kind, base in (("example", ROOT), ("page", ROOT / "content")):
         for item in manifest[kind]:
             src = base / item["path"]
             prop = PROPOSED / src.relative_to(ROOT)
-            if prop.is_file() and src.is_file() and prop.read_text() != src.read_text():
+            if prop.is_file() and (_read(src) != prop.read_text()):
                 found[item["id"]] = (src, prop)
     return found
 
@@ -329,9 +374,9 @@ def cmd_adopt(args: argparse.Namespace) -> int:
             rel = src.relative_to(ROOT)
             sys.stdout.writelines(
                 difflib.unified_diff(
-                    src.read_text().splitlines(keepends=True),
+                    (_read(src) or "").splitlines(keepends=True),
                     prop.read_text().splitlines(keepends=True),
-                    f"a/{rel}",
+                    f"a/{rel}" if src.is_file() else "/dev/null",
                     f"b/{rel}",
                 )
             )
@@ -339,21 +384,28 @@ def cmd_adopt(args: argparse.Namespace) -> int:
         return 0
 
     before = _gate_failures()
-    backup = {aid: src.read_text() for aid, (src, _) in chosen.items()}
+    backup = {aid: _read(src) for aid, (src, _) in chosen.items()}
+
+    def restore() -> None:
+        for aid, (src, _) in chosen.items():
+            if backup[aid] is None:
+                src.unlink(missing_ok=True)  # it was a new file
+            else:
+                src.write_text(backup[aid])
+
     try:
         for src, prop in chosen.values():
+            src.parent.mkdir(parents=True, exist_ok=True)
             src.write_text(prop.read_text())
         after = _gate_failures()
     except BaseException:
-        for aid, (src, _) in chosen.items():
-            src.write_text(backup[aid])
+        restore()
         raise
     broken = {
         a: sorted(after[a] - before.get(a, set())) for a in after if after[a] - before.get(a, set())
     }
     if broken:
-        for aid, (src, _) in chosen.items():
-            src.write_text(backup[aid])
+        restore()
         for aid, names in sorted(broken.items()):
             print(f"FAIL {aid}: new gate failure(s) {names}", file=sys.stderr)
         print("nothing adopted: originals restored, proposals kept.", file=sys.stderr)
@@ -474,9 +526,10 @@ def cmd_ci(args: argparse.Namespace) -> int:
         f"SDK {snap['meta']['sdk_version']} @ {snap['meta']['git_commit']}; "
         f"API changed since baseline: {changed}"
     )
-    if changed and get_llm() is not None:
-        cmd_generate(argparse.Namespace(all=False, page=None))
-    rc = cmd_loop(argparse.Namespace(page=None, example=None))
+    seeds: dict[str, str] = {}
+    if changed and (llm := get_llm()) is not None:
+        seeds = _generate(argparse.Namespace(all=False, page=None), llm)
+    rc = cmd_loop(argparse.Namespace(page=None, example=None, seeds=seeds))
     rc = max(rc, build_site(Path(args.out)))
     if rc == 0 and changed and args.update_baseline:
         api.save(snap, BASELINE)
