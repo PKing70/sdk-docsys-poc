@@ -176,3 +176,114 @@ def test_adopt_ignores_identical_proposals(tmp_path, monkeypatch):
     ex, original = _example(root)
     _propose(root, ex["path"], original)
     assert _adopt(all=True) == 2
+
+
+# --- generate --------------------------------------------------------------------------
+
+
+def _generate_args(**kw) -> argparse.Namespace:
+    return argparse.Namespace(**({"all": True, "page": None} | kw))
+
+
+def _fake_generate(monkeypatch, suffix: str = "\n# generated\n") -> list[Path]:
+    """Model that appends a marker. Records the root each page was drafted against."""
+    roots: list[Path] = []
+    monkeypatch.setattr(cli, "get_llm", lambda: object())
+    monkeypatch.setattr(
+        generate, "generate_example", lambda llm, ex, snap, cur: (cur or "") + suffix
+    )
+
+    def gen_page(llm, page, manifest, snap, root, cur):
+        roots.append(root)
+        return (cur or "") + suffix
+
+    monkeypatch.setattr(generate, "generate_page", gen_page)
+    return roots
+
+
+def test_generate_writes_proposals_not_originals(tmp_path, monkeypatch):
+    root = _sandbox(tmp_path, monkeypatch)
+    monkeypatch.setattr(cli, "BASELINE", root / "state" / "none.json")  # no baseline: all
+    _fake_generate(monkeypatch)
+    man = generate.load_manifest(root / "manifest.toml")
+    ex, page = man["example"][0], man["page"][0]
+    ex_orig = (root / ex["path"]).read_text()
+    page_src = root / "content" / page["path"]
+    page_orig = page_src.read_text()
+
+    assert cli.cmd_generate(_generate_args()) == 0
+
+    assert (root / ex["path"]).read_text() == ex_orig
+    assert page_src.read_text() == page_orig
+    assert (root / "proposed" / ex["path"]).read_text() == ex_orig + "\n# generated\n"
+    assert (root / "proposed" / "content" / page["path"]).read_text().endswith("# generated\n")
+    assert not (root / "state" / ".stage").exists()
+
+
+def test_generate_drafts_pages_against_new_examples(tmp_path, monkeypatch):
+    root = _sandbox(tmp_path, monkeypatch)
+    monkeypatch.setattr(cli, "BASELINE", root / "state" / "none.json")
+    roots = _fake_generate(monkeypatch)
+    ex = generate.load_manifest(root / "manifest.toml")["example"][0]
+    seen: list[str] = []
+    real = generate.generate_page
+    monkeypatch.setattr(
+        generate,
+        "generate_page",
+        lambda llm, page, m, snap, view, cur: (
+            seen.append((view / ex["path"]).read_text()),
+            real(llm, page, m, snap, view, cur),
+        )[1],
+    )
+    cli.cmd_generate(_generate_args())
+    assert roots and all(r != root for r in roots)
+    assert seen and all(t.endswith("# generated\n") for t in seen)
+
+
+def test_generate_creates_planned_artifact_as_proposal(tmp_path, monkeypatch):
+    root = _sandbox(tmp_path, monkeypatch)
+    monkeypatch.setattr(cli, "BASELINE", root / "state" / "none.json")
+    _fake_generate(monkeypatch, suffix="NEW\n")
+    ex = generate.load_manifest(root / "manifest.toml")["example"][0]
+    (root / ex["path"]).unlink()  # planned but unwritten
+
+    cli.cmd_generate(_generate_args(page="no-such-page"))  # pages only: no example generated
+    assert not (root / "proposed" / ex["path"]).exists()
+
+    cli.cmd_generate(_generate_args(page=None))
+    assert not (root / ex["path"]).exists()
+    assert (root / "proposed" / ex["path"]).read_text() == "NEW\n"
+
+
+def test_adopt_can_adopt_a_new_artifact_and_rolls_it_back(tmp_path, monkeypatch):
+    root = _sandbox(tmp_path, monkeypatch)
+    ex, original = _example(root)
+    (root / ex["path"]).unlink()
+    prop = _propose(root, ex["path"], "def broken(:\n")
+    assert _adopt(example=ex["id"]) == 1  # new file fails its gates: removed again
+    assert not (root / ex["path"]).exists() and prop.exists()
+
+    prop.write_text(original)
+    assert _adopt(example=ex["id"]) == 0
+    assert (root / ex["path"]).read_text() == original and not prop.exists()
+
+
+def test_loop_improves_this_runs_generated_draft(tmp_path, monkeypatch):
+    root = _sandbox(tmp_path, monkeypatch)
+    _fake_model(monkeypatch)
+    ex, original = _example(root)
+    draft = original + "\n# draft\n"
+
+    cli.cmd_loop(argparse.Namespace(page=None, example=ex["id"], seeds={ex["path"]: draft}))
+
+    assert (root / ex["path"]).read_text() == original
+    assert (root / "proposed" / ex["path"]).read_text() == draft + MARK
+
+
+def test_loop_skips_artifact_with_no_file_and_no_draft(tmp_path, monkeypatch, capsys):
+    root = _sandbox(tmp_path, monkeypatch)
+    _fake_model(monkeypatch)
+    ex, _ = _example(root)
+    (root / ex["path"]).unlink()
+    cli.cmd_loop(argparse.Namespace(page=None, example=ex["id"]))
+    assert "does not exist yet" in capsys.readouterr().out

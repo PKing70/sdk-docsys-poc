@@ -76,14 +76,12 @@ uv run sdkdocsys check    # deterministic gates, no model needed
 ## State of v0.1
 
 Done: API snapshot and diff, change routing, `coderef`, deterministic checks, the reviewer, the bounded
-loop with reports, five examples and five guides, the read-only `review` command, the usage meter, tests,
+loop with reports, five examples and five guides, the read-only `review` command, a non-destructive loop and `generate` that write proposals to
+`proposed/` (pages scored against the same run's example proposals) plus `adopt` to apply them with
+rollback on any new gate failure, the usage meter, tests,
 a secret scan, and the private repo.
 
 Not done:
-- (Branch `feat/non-destructive-improve-loop`, not yet merged) The improve loop now writes proposals
-  to `proposed/` instead of editing files. Pages are scored against example proposals from the same
-  run (originals otherwise). `sdkdocsys adopt` copies chosen proposals into place and rolls back if
-  it causes a new gate failure. `sdkdocsys generate` still writes in place.
 - No from-scratch generation run has been done with a real model.
 - Examples have never run against a live Splunk. The SDK's compose file auto-accepts a license, so the
   user must decide first.
