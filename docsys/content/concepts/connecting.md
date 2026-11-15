@@ -14,8 +14,10 @@ The values you pass control the connection:
 
 - `host`, `port`, and `scheme` choose the server. The defaults are `localhost`, 8089, and `https`.
 - `username` and `password` authenticate an account. You can pass a `token` or `cookie` instead if you already have a session.
-- `owner`, `app`, and `sharing` set the namespace, which decides where the objects you create or list live. Objects saved with app sharing belong to one app. Objects saved with global sharing are visible across apps. Choose the namespace on purpose, because it decides what you can see.
-- `autologin=True` makes the SDK sign in again if the session expires. Long-running scripts need it.
+- `owner`, `app`, and `sharing` set the namespace, which decides where the objects you create or list live. Objects saved with app sharing belong to one app. Objects saved with global sharing are visible across apps. The `sharing` value can be `user`, `app`, `global`, or `system`, and the default is `user`. For `owner` and `app`, the value `-` is a wildcard that matches any. Choose the namespace on purpose, because it decides what you can see.
+- `autologin=True` makes the SDK sign in again if the session expires. Scripts that run longer than the server's session timeout need it.
+- `verify` turns SSL verification on or off, and `self_signed_certificate` tells the SDK whether the server uses a self-signed certificate. Check both when a TLS error stops the connection.
+- `retries` and `retryDelay` control how many times the SDK retries a failed HTTP connection and how long it waits between tries. The default is no retries.
 
 The example reads connection settings from environment variables. That keeps credentials out of your source files and out of version control.
 
