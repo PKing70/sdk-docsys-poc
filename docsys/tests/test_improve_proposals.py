@@ -287,3 +287,106 @@ def test_loop_skips_artifact_with_no_file_and_no_draft(tmp_path, monkeypatch, ca
     (root / ex["path"]).unlink()
     cli.cmd_loop(argparse.Namespace(page=None, example=ex["id"]))
     assert "does not exist yet" in capsys.readouterr().out
+
+
+# --- scoped model review (CI cost control) ---------------------------------------------
+
+
+def _manifest() -> dict:
+    return generate.load_manifest(ROOT / "manifest.toml")
+
+
+def test_scope_is_empty_when_nothing_changed():
+    assert cli._review_scope(_manifest(), set(), None) == set()
+    assert cli._review_scope(_manifest(), set(), set()) == set()
+
+
+def test_scope_covers_an_edited_page():
+    page = _manifest()["page"][0]
+    got = cli._review_scope(_manifest(), set(), {f"content/{page['path']}"})
+    assert got == {page["id"]}
+
+
+def test_scope_includes_pages_that_cite_an_edited_example():
+    man = _manifest()
+    ex = next(
+        e for e in man["example"] if any(e["id"] in p.get("examples", []) for p in man["page"])
+    )
+    citing = {p["id"] for p in man["page"] if ex["id"] in p.get("examples", [])}
+    got = cli._review_scope(man, set(), {ex["path"]})
+    assert got == {ex["id"]} | citing
+
+
+def test_scope_follows_the_api_diff_and_none_means_everything():
+    man = _manifest()
+    everything = {a["id"] for a in (*man["page"], *man["example"])}
+    assert cli._review_scope(man, None, None) == everything
+
+
+def test_changed_paths_reads_git_and_returns_none_when_unknown(tmp_path, monkeypatch):
+    import subprocess
+
+    repo = tmp_path / "repo"
+    (repo / "docsys" / "content").mkdir(parents=True)
+
+    def git(*a):
+        subprocess.run(["git", "-C", str(repo), *a], check=True, capture_output=True)
+
+    git("init", "-q")
+    git("config", "user.email", "t@example.com")
+    git("config", "user.name", "t")
+    (repo / "docsys" / "content" / "a.md").write_text("one")
+    (repo / "other.txt").write_text("x")
+    git("add", ".")
+    git("commit", "-qm", "base")
+    (repo / "docsys" / "content" / "a.md").write_text("two")
+    (repo / "other.txt").write_text("y")
+    git("commit", "-qam", "change")
+    monkeypatch.setattr(cli, "REPO", repo)
+    monkeypatch.setattr(cli, "ROOT", repo / "docsys")
+
+    assert cli._changed_paths("HEAD~1") == {"content/a.md"}  # outside docsys/ is ignored
+    assert cli._changed_paths(None) is None
+    assert cli._changed_paths("0" * 40) is None  # a new-branch push has an all-zero "before"
+
+
+def test_loop_uses_the_model_only_inside_the_scope(tmp_path, monkeypatch):
+    root = _sandbox(tmp_path, monkeypatch)
+    _fake_model(monkeypatch)
+    man = generate.load_manifest(root / "manifest.toml")
+    inside, outside = man["example"][0], man["example"][1]
+    judged: list[bool] = []
+    revised_ids: list[str] = []
+
+    def judge(llm, text, facts, cfg, *, skip_reason=None):
+        judged.append(llm is not None)
+        return quality.Check("llm_rubric", "judge", True if llm else None), []
+
+    monkeypatch.setattr(quality, "judge", judge)
+    monkeypatch.setattr(
+        generate,
+        "revise_example",
+        lambda llm, text, rep, issues, ex, snap: revised_ids.append(ex["id"]) or text + MARK,
+    )
+    # the fake scorer fails everything until revised, so the model must be asked to revise
+    cli.cmd_loop(argparse.Namespace(page=None, example=None, model_scope={inside["id"]}))
+
+    assert inside["id"] in revised_ids and outside["id"] not in revised_ids
+    assert (root / "proposed" / inside["path"]).exists()
+    assert not (root / "proposed" / outside["path"]).exists()
+    summary = (root / "reports" / "SUMMARY.md").read_text()
+    assert f"ran for 1 of {len(man['example']) + len(man['page'])} artifacts" in summary
+
+
+def test_ci_passes_a_model_scope_to_the_loop(tmp_path, monkeypatch):
+    seen: list = []
+    monkeypatch.setattr(cli, "get_llm", lambda: object())
+    monkeypatch.setattr(cli, "cmd_loop", lambda a: seen.append(a.model_scope) or 0)
+    monkeypatch.setattr(cli, "build_site", lambda out: 0)
+    monkeypatch.setattr(cli, "_generate", lambda a, llm: {})
+    base = dict(out=str(tmp_path), update_baseline=False, changed_from=None, review_all=False)
+
+    cli.cmd_ci(argparse.Namespace(**base))
+    cli.cmd_ci(argparse.Namespace(**(base | {"review_all": True})))
+
+    assert seen[0] is not None and seen[1] is None  # --review-all lifts the limit

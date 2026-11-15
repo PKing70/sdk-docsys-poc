@@ -20,7 +20,8 @@ BASELINE = ROOT / "state" / "api_snapshot.json"
 MANIFEST = ROOT / "manifest.toml"
 QUALITY = ROOT / "quality.toml"
 REPORTS = ROOT / "reports"
-PROPOSED = ROOT / "proposed"
+# Where proposals are written. CI points this at an untracked folder it uploads as an artifact.
+PROPOSED = Path(os.environ.get("SDKDOCSYS_PROPOSED", ROOT / "proposed"))
 STAGE = ROOT / "state" / ".stage"  # scratch copies for checks that need a file; gitignored
 FAIL_STATUSES = {loop.NEEDS_LLM, loop.PLATEAU, loop.EXHAUSTED}
 
@@ -193,6 +194,55 @@ def _overlay_root(revised: dict[str, str]) -> Path:
     return view
 
 
+def _scope_line(llm, scope: set[str] | None, exs: list[dict], pages: list[dict]) -> str:
+    if llm is None:
+        return "SKIPPED (no LLM_GATEWAY_TOKEN or ANTHROPIC_API_KEY)"
+    if scope is None:
+        return "ran for every artifact"
+    ids = [a["id"] for a in (*exs, *pages)]
+    hit = [i for i in ids if i in scope]
+    return (
+        f"ran for {len(hit)} of {len(ids)} artifacts ({', '.join(hit) or 'none'}); "
+        "the rest had deterministic checks only"
+    )
+
+
+def _changed_paths(ref: str | None) -> set[str] | None:
+    """Files under docsys/ that changed between ``ref`` and HEAD, relative to ROOT.
+
+    None when it cannot be determined (no ref, or git does not know it).
+    """
+    if not ref:
+        return None
+    proc = subprocess.run(
+        ["git", "-C", str(REPO), "diff", "--name-only", ref, "HEAD", "--", ROOT.name],
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        return None
+    prefix = f"{ROOT.name}/"
+    return {ln[len(prefix) :] for ln in proc.stdout.splitlines() if ln.startswith(prefix)}
+
+
+def _review_scope(
+    manifest: dict, changed_symbols: set[str] | None, changed_paths: set[str] | None
+) -> set[str]:
+    """Ids of the artifacts the model should review for this change.
+
+    Affected by the API diff, edited themselves, or a page that cites an edited example.
+    """
+    pages, examples = generate.affected(manifest, changed_symbols)
+    ids = {p["id"] for p in pages} | {e["id"] for e in examples}
+    if changed_paths:
+        edited = {e["id"] for e in manifest["example"] if e["path"] in changed_paths}
+        ids |= edited
+        for p in manifest["page"]:
+            if f"content/{p['path']}" in changed_paths or edited & set(p.get("examples", [])):
+                ids.add(p["id"])
+    return ids
+
+
 def cmd_loop(args: argparse.Namespace) -> int:
     """Measure, optionally revise (bounded), and write justification reports.
 
@@ -206,6 +256,14 @@ def cmd_loop(args: argparse.Namespace) -> int:
     outcomes: list[loop.Outcome] = []
     revised: dict[str, str] = {}
     seeds: dict[str, str] = getattr(args, "seeds", None) or {}  # drafts from this run's generate
+    # Artifact ids the model may review and revise. None means all. Everything else still gets
+    # the deterministic checks, and its model review is reported as skipped.
+    scope: set[str] | None = getattr(args, "model_scope", None)
+
+    def model_for(artifact_id: str):
+        return llm if scope is None or artifact_id in scope else None
+
+    skip_reason = None if llm is None else "skipped: not affected by this change"
 
     def start_of(rel: str, path: Path) -> str | None:
         return seeds.get(rel, _read(path))
@@ -219,22 +277,28 @@ def cmd_loop(args: argparse.Namespace) -> int:
         write = _proposal_writer(path, _read(path), revised)
         stage = STAGE / ex["path"]
 
-        def measure(text: str, ex=ex, stage=stage):
+        use = model_for(ex["id"])
+
+        def measure(text: str, ex=ex, stage=stage, use=use):
             # check_example reads a file (and runs ruff on it), so stage the candidate in a
             # scratch dir inside docsys/ (ruff sees the project config). Never the original.
             stage.parent.mkdir(parents=True, exist_ok=True)
             stage.write_text(text)
             rep = quality.check_example(stage, cfg, snap)
             chk, issues = quality.judge(
-                llm, text, quality.api_facts(snap, ex["covers"], focus=ex.get("uses")), cfg
+                use,
+                text,
+                quality.api_facts(snap, ex["covers"], focus=ex.get("uses")),
+                cfg,
+                skip_reason=skip_reason,
             )
             rep.checks.append(chk)
             return rep, issues
 
         revise = (
             None
-            if llm is None
-            else (lambda t, r, i, ex=ex: generate.revise_example(llm, t, r, i, ex, snap))
+            if use is None
+            else (lambda t, r, i, ex=ex, use=use: generate.revise_example(use, t, r, i, ex, snap))
         )
         outcomes.append(
             loop.run(
@@ -258,23 +322,26 @@ def cmd_loop(args: argparse.Namespace) -> int:
             continue
         write = _proposal_writer(path, _read(path))
 
-        def measure(text: str, page=page):
+        use = model_for(page["id"])
+
+        def measure(text: str, page=page, use=use):
             rep = quality.check_page(text, page, cfg, snap, view, by_id)
             chk, issues = quality.judge(
-                llm,
+                use,
                 quality.expand_coderefs(text, view),
                 quality.api_facts(snap, page["covers"], focus=page.get("key_symbols")),
                 cfg,
+                skip_reason=skip_reason,
             )
             rep.checks.append(chk)
             return rep, issues
 
         revise = (
             None
-            if llm is None
+            if use is None
             else (
-                lambda t, r, i, page=page: generate.revise_page(
-                    llm, t, r, i, page, manifest, snap, view
+                lambda t, r, i, page=page, use=use: generate.revise_page(
+                    use, t, r, i, page, manifest, snap, view
                 )
             )
         )
@@ -293,7 +360,7 @@ def cmd_loop(args: argparse.Namespace) -> int:
     summary = [
         "# Quality summary",
         "",
-        f"Model review: {'ran' if llm else 'SKIPPED (no LLM_GATEWAY_TOKEN or ANTHROPIC_API_KEY)'}",
+        f"Model review: {_scope_line(llm, scope, exs, pages)}",
         "",
         "| Artifact | Status | Score | Why it stopped |",
         "|---|---|---|---|",
@@ -526,10 +593,17 @@ def cmd_ci(args: argparse.Namespace) -> int:
         f"SDK {snap['meta']['sdk_version']} @ {snap['meta']['git_commit']}; "
         f"API changed since baseline: {changed}"
     )
-    seeds: dict[str, str] = {}
-    if changed and (llm := get_llm()) is not None:
+    llm, seeds, scope = get_llm(), {}, None
+    if llm is not None and not args.review_all:
+        manifest = generate.load_manifest(MANIFEST)
+        paths = _changed_paths(args.changed_from)
+        if paths is None:
+            print("no usable --changed-from: model review follows the API diff only")
+        scope = _review_scope(manifest, None if base is None else api.changed_symbols(d), paths)
+        print(f"model review scope: {sorted(scope) or 'nothing'}")
+    if changed and llm is not None:
         seeds = _generate(argparse.Namespace(all=False, page=None), llm)
-    rc = cmd_loop(argparse.Namespace(page=None, example=None, seeds=seeds))
+    rc = cmd_loop(argparse.Namespace(page=None, example=None, seeds=seeds, model_scope=scope))
     rc = max(rc, build_site(Path(args.out)))
     if rc == 0 and changed and args.update_baseline:
         api.save(snap, BASELINE)
@@ -576,6 +650,14 @@ def main(argv: list[str] | None = None) -> int:
     c = sub.add_parser("ci", help="the whole pipeline, as CI runs it")
     c.add_argument("--out", default=str(ROOT / "_build" / "html"))
     c.add_argument("--update-baseline", action="store_true")
+    c.add_argument(
+        "--changed-from",
+        metavar="REF",
+        help="git ref to diff against; the model reviews only artifacts affected since then",
+    )
+    c.add_argument(
+        "--review-all", action="store_true", help="model-review every artifact (can be costly)"
+    )
     c.set_defaults(fn=cmd_ci)
     args = ap.parse_args(argv)
     rc = args.fn(args)

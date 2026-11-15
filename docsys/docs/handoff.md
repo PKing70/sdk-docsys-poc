@@ -86,7 +86,11 @@ Not done:
 - Examples have never run against a live Splunk. The SDK's compose file auto-accepts a license, so the
   user must decide first.
 - The last small edits to three files were not re-reviewed by the model.
-- CI runs the whole pipeline on every push. Add cost controls before a key goes in.
+- CI cost controls, partly done: with a key, `sdkdocsys ci --changed-from REF` limits model review to
+  artifacts affected by the API diff or edited since REF (page, example, or a page citing an edited
+  example), and the workflow uploads proposals (`SDKDOCSYS_PROPOSED`) so model output is kept. Not
+  done: cancel superseded runs, cache reviews of unchanged artifacts, a per-run spend cap, and a
+  spend limit in the Anthropic Console (the user sets that one). No key is in GitHub secrets yet.
 - The corporate model provider has only run against a fake client.
 
 ## Gotchas learned

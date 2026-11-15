@@ -562,7 +562,12 @@ JUDGE_SYSTEM = (
 
 
 def judge(
-    llm: LLM | None, artifact_text: str, api_facts: str, cfg: dict
+    llm: LLM | None,
+    artifact_text: str,
+    api_facts: str,
+    cfg: dict,
+    *,
+    skip_reason: str | None = None,
 ) -> tuple[Check, list[str]]:
     if llm is None:
         return Check(
@@ -570,7 +575,8 @@ def judge(
             "judge",
             None,
             "gate",
-            detail="skipped: no LLM_GATEWAY_TOKEN or ANTHROPIC_API_KEY, so no model review ran",
+            detail=skip_reason
+            or "skipped: no LLM_GATEWAY_TOKEN or ANTHROPIC_API_KEY, so no model review ran",
         ), []
     try:
         raw = llm.complete(
