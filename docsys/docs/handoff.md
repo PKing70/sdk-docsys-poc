@@ -12,16 +12,24 @@ builds one site that combines those guides with the existing Sphinx API referenc
 
 ## Start here
 
+Keep one permanent local clone of the repository (suggested: `~/sdk-docsys-poc`) and start every
+chat from its `docsys/` folder, so no chat needs to re-clone or paste files. Before each chat, switch
+to `main` and run `git pull`. Make changes on a branch.
+
+Also read `docs/handoff-addendum.md`. It records design decisions made after this file was written.
+`docsys/CLAUDE.md` tells a new chat to read both files, so a chat started in `docsys/` picks them up
+without a starter prompt.
+
 Two kinds of chats can follow this one:
 
-- **A pitch or understanding chat** (explaining the project, drill-down questions, slides). Paste this
-  file and `docs/overview/one-pager.md` into the chat. No clone is needed.
-- **A build chat** (changing code, running tests, finishing v0.1). It needs the repository on disk,
-  because the earlier chat's working folder was temporary. Clone it into a permanent place first:
+- **A pitch or understanding chat** (explaining the project, drill-down questions, slides). Start it
+  in the clone and read this file and `docs/overview/one-pager.md`. Nothing needs to run.
+- **A build chat** (changing code, running tests, finishing v0.1). Same clone. If it does not exist
+  yet, create it once:
 
 ```bash
-git clone git@github.com:PKing70/sdk-docsys-poc.git
-cd sdk-docsys-poc/docsys
+git clone git@github.com:PKing70/sdk-docsys-poc.git ~/sdk-docsys-poc
+cd ~/sdk-docsys-poc/docsys
 uv sync --python 3.13 --extra dev --extra reference --extra llm
 uv run pytest -q          # expect 43 passed
 uv run sdkdocsys check    # deterministic gates, no model needed
@@ -96,17 +104,19 @@ so prefer fresh, short sessions and use background agents for large reads.
 
 ## Next steps, in order
 
-1. Write the pitch briefs with the user, using `docs/overview/` as the base.
+1. Pitch briefs: manager and writer briefs are written (`docs/overview/manager-brief.md`,
+   `writer-brief.md`). Review them with their audiences and revise.
 2. Finish v0.1: non-destructive loop, first generation run with the usage meter, CI cost controls.
 3. Decide on live example validation and the license question.
 4. Fold in the user's feature list from the roadmap parking lot, then plan v0.2.
 
 ## Starter prompts for the new chat
 
-For a pitch or understanding chat, after pasting this file and the one-pager:
+For a pitch or understanding chat, started in the clone:
 
-> I'm continuing the docsys project. I've pasted the handoff and the one-pager. Use only those unless
-> I paste more. Today I want to <say what you want to do>.
+> I'm continuing the docsys project. Read `docsys/docs/handoff.md`, `docsys/docs/handoff-addendum.md`,
+> and `docsys/docs/overview/one-pager.md`. Use only those unless I name more. Today I want to
+> <say what you want to do>.
 
 For a build chat, from the cloned folder:
 
