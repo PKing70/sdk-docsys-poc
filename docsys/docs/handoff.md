@@ -80,8 +80,10 @@ loop with reports, five examples and five guides, the read-only `review` command
 a secret scan, and the private repo.
 
 Not done:
-- The improve loop edits files in place. It should write proposals instead. This caused a real
-  contamination bug once.
+- (Branch `feat/non-destructive-improve-loop`, not yet merged) The improve loop now writes proposals
+  to `proposed/` instead of editing files. Pages are scored against example proposals from the same
+  run (originals otherwise). `sdkdocsys adopt` copies chosen proposals into place and rolls back if
+  it causes a new gate failure. `sdkdocsys generate` still writes in place.
 - No from-scratch generation run has been done with a real model.
 - Examples have never run against a live Splunk. The SDK's compose file auto-accepts a license, so the
   user must decide first.
