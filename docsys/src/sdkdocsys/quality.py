@@ -352,7 +352,10 @@ def check_page(
 
 
 def names_used(path: Path) -> set[str]:
-    tree = ast.parse(path.read_text())
+    try:
+        tree = ast.parse(path.read_text())
+    except SyntaxError:
+        return set()  # the example's own "parses" gate reports it; a page must not crash on it
     names: set[str] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Attribute):

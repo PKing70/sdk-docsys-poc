@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import difflib
 import os
 import shutil
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 from . import api, generate, loop, quality
@@ -18,6 +20,8 @@ BASELINE = ROOT / "state" / "api_snapshot.json"
 MANIFEST = ROOT / "manifest.toml"
 QUALITY = ROOT / "quality.toml"
 REPORTS = ROOT / "reports"
+PROPOSED = ROOT / "proposed"
+STAGE = ROOT / "state" / ".stage"  # scratch copies for checks that need a file; gitignored
 FAIL_STATUSES = {loop.NEEDS_LLM, loop.PLATEAU, loop.EXHAUSTED}
 
 
@@ -123,20 +127,71 @@ def cmd_check(args: argparse.Namespace) -> int:
     return 1 if bad else 0
 
 
+def _proposal_writer(
+    src: Path, original: str, sink: dict[str, str] | None = None
+) -> Callable[[str], None]:
+    """Return a writer that saves text under ``proposed/``, mirroring ``src``'s path in ROOT.
+
+    The source file is never touched. Unchanged text writes nothing, and an existing proposal
+    is only replaced when the loop produces a new one. ``sink`` records each changed text by
+    its path relative to ROOT, so later artifacts can be checked against it.
+    """
+    rel = src.relative_to(ROOT)
+    dest = PROPOSED / rel
+
+    def write(text: str) -> None:
+        if text == original:
+            return
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(text)
+        if sink is not None:
+            sink[rel.as_posix()] = text
+
+    return write
+
+
+def _overlay_root(revised: dict[str, str]) -> Path:
+    """Root that pages resolve example code against: originals plus this run's proposals.
+
+    Pages cite examples by path, so a page must be judged against the example code that would
+    ship with it. With no revised examples this is just ROOT. Proposals left by earlier runs
+    are ignored on purpose, since they may be stale.
+    """
+    if not revised:
+        return ROOT
+    view = STAGE / "overlay"
+    shutil.rmtree(view, ignore_errors=True)
+    shutil.copytree(ROOT / "examples", view / "examples")
+    for rel, text in revised.items():
+        (view / rel).parent.mkdir(parents=True, exist_ok=True)
+        (view / rel).write_text(text)
+    return view
+
+
 def cmd_loop(args: argparse.Namespace) -> int:
-    """Measure, optionally revise (bounded), and write justification reports."""
+    """Measure, optionally revise (bounded), and write justification reports.
+
+    Non-destructive: files in content/ and examples/ are never edited. A revised version is
+    written to proposed/<same relative path> for a person to diff and adopt.
+    """
     cfg, snap, llm = quality.load_config(QUALITY), _current(), get_llm()
     manifest, pages, exs = _artifacts(args)
     by_id = {e["id"]: e for e in manifest["example"]}
     lp = cfg["loop"]
     outcomes: list[loop.Outcome] = []
+    revised: dict[str, str] = {}
 
     for ex in exs:
         path = ROOT / ex["path"]
+        write = _proposal_writer(path, path.read_text(), revised)
+        stage = STAGE / ex["path"]
 
-        def measure(text: str, ex=ex, path=path):
-            path.write_text(text)
-            rep = quality.check_example(path, cfg, snap)
+        def measure(text: str, ex=ex, stage=stage):
+            # check_example reads a file (and runs ruff on it), so stage the candidate in a
+            # scratch dir inside docsys/ (ruff sees the project config). Never the original.
+            stage.parent.mkdir(parents=True, exist_ok=True)
+            stage.write_text(text)
+            rep = quality.check_example(stage, cfg, snap)
             chk, issues = quality.judge(
                 llm, text, quality.api_facts(snap, ex["covers"], focus=ex.get("uses")), cfg
             )
@@ -152,7 +207,7 @@ def cmd_loop(args: argparse.Namespace) -> int:
             loop.run(
                 ex["id"],
                 read=path.read_text,
-                write=path.write_text,
+                write=write,
                 measure=measure,
                 revise=revise,
                 max_iterations=lp["max_iterations"],
@@ -160,15 +215,16 @@ def cmd_loop(args: argparse.Namespace) -> int:
             )
         )
 
+    view = _overlay_root(revised)
     for page in pages:
         path = ROOT / "content" / page["path"]
+        write = _proposal_writer(path, path.read_text())
 
-        def measure(text: str, page=page, path=path):
-            path.write_text(text)
-            rep = quality.check_page(text, page, cfg, snap, ROOT, by_id)
+        def measure(text: str, page=page):
+            rep = quality.check_page(text, page, cfg, snap, view, by_id)
             chk, issues = quality.judge(
                 llm,
-                quality.expand_coderefs(text, ROOT),
+                quality.expand_coderefs(text, view),
                 quality.api_facts(snap, page["covers"], focus=page.get("key_symbols")),
                 cfg,
             )
@@ -180,7 +236,7 @@ def cmd_loop(args: argparse.Namespace) -> int:
             if llm is None
             else (
                 lambda t, r, i, page=page: generate.revise_page(
-                    llm, t, r, i, page, manifest, snap, ROOT
+                    llm, t, r, i, page, manifest, snap, view
                 )
             )
         )
@@ -188,7 +244,7 @@ def cmd_loop(args: argparse.Namespace) -> int:
             loop.run(
                 page["id"],
                 read=path.read_text,
-                write=path.write_text,
+                write=write,
                 measure=measure,
                 revise=revise,
                 max_iterations=lp["max_iterations"],
@@ -211,7 +267,103 @@ def cmd_loop(args: argparse.Namespace) -> int:
         )
         print(f"{o.status:<22} {o.artifact:<28} score={o.final.score:.2f}  {o.reason}")
     (REPORTS / "SUMMARY.md").write_text("\n".join(summary) + "\n")
+    shutil.rmtree(STAGE, ignore_errors=True)
+    changed = [p for p in PROPOSED.rglob("*") if p.is_file() and p.name != "README.md"]
+    if changed:
+        print(f"proposals (diff against the originals, nothing was edited): {PROPOSED}")
     return 1 if any(o.status in FAIL_STATUSES for o in outcomes) else 0
+
+
+def _gate_failures() -> dict[str, set[str]]:
+    """Failing gate names per artifact id, over every example and page. Deterministic, no model."""
+    cfg, snap = quality.load_config(QUALITY), _current()
+    manifest = generate.load_manifest(MANIFEST)
+    by_id = {e["id"]: e for e in manifest["example"]}
+    out: dict[str, set[str]] = {}
+    for e in manifest["example"]:
+        rep = quality.check_example(ROOT / e["path"], cfg, snap)
+        out[e["id"]] = {c.name for c in rep.failing if c.severity == "gate"}
+    for p in manifest["page"]:
+        text = (ROOT / "content" / p["path"]).read_text()
+        rep = quality.check_page(text, p, cfg, snap, ROOT, by_id)
+        out[p["id"]] = {c.name for c in rep.failing if c.severity == "gate"}
+    return out
+
+
+def _pending() -> dict[str, tuple[Path, Path]]:
+    """Artifact id -> (original, proposal) for every proposal that differs from its original."""
+    manifest = generate.load_manifest(MANIFEST)
+    found: dict[str, tuple[Path, Path]] = {}
+    for kind, base in (("example", ROOT), ("page", ROOT / "content")):
+        for item in manifest[kind]:
+            src = base / item["path"]
+            prop = PROPOSED / src.relative_to(ROOT)
+            if prop.is_file() and src.is_file() and prop.read_text() != src.read_text():
+                found[item["id"]] = (src, prop)
+    return found
+
+
+def cmd_adopt(args: argparse.Namespace) -> int:
+    """Copy chosen proposals from proposed/ over the originals, then re-run the gates.
+
+    Nothing is adopted unless named (--page, --example, or --all). If adopting introduces a
+    gate failure anywhere (including a page that cites an adopted example), every file is
+    restored and the proposals are kept. --dry-run shows diffs and changes nothing.
+    """
+    pending = _pending()
+    wanted = {args.page, args.example} - {None}
+    if not (args.all or wanted):
+        print("name what to adopt: --page ID, --example ID, or --all.", file=sys.stderr)
+        for aid, (src, _) in sorted(pending.items()):
+            print(f"  pending: {aid}  ({src.relative_to(ROOT)})", file=sys.stderr)
+        if not pending:
+            print("  no pending proposals.", file=sys.stderr)
+        return 2
+    chosen = pending if args.all else {k: v for k, v in pending.items() if k in wanted}
+    for missing in sorted(wanted - set(chosen)):
+        print(f"no pending proposal for {missing}", file=sys.stderr)
+    if not chosen:
+        return 2
+    if args.dry_run:
+        for _aid, (src, prop) in sorted(chosen.items()):
+            rel = src.relative_to(ROOT)
+            sys.stdout.writelines(
+                difflib.unified_diff(
+                    src.read_text().splitlines(keepends=True),
+                    prop.read_text().splitlines(keepends=True),
+                    f"a/{rel}",
+                    f"b/{rel}",
+                )
+            )
+        print(f"dry run: {len(chosen)} proposal(s) would be adopted; nothing changed.")
+        return 0
+
+    before = _gate_failures()
+    backup = {aid: src.read_text() for aid, (src, _) in chosen.items()}
+    try:
+        for src, prop in chosen.values():
+            src.write_text(prop.read_text())
+        after = _gate_failures()
+    except BaseException:
+        for aid, (src, _) in chosen.items():
+            src.write_text(backup[aid])
+        raise
+    broken = {
+        a: sorted(after[a] - before.get(a, set())) for a in after if after[a] - before.get(a, set())
+    }
+    if broken:
+        for aid, (src, _) in chosen.items():
+            src.write_text(backup[aid])
+        for aid, names in sorted(broken.items()):
+            print(f"FAIL {aid}: new gate failure(s) {names}", file=sys.stderr)
+        print("nothing adopted: originals restored, proposals kept.", file=sys.stderr)
+        return 1
+    for _, prop in chosen.values():
+        prop.unlink()
+    for aid, (src, _) in sorted(chosen.items()):
+        print(f"adopted {aid}: {src.relative_to(ROOT)}")
+    print("gates re-run: no new gate failures. Review with `git diff`; nothing is committed.")
+    return 0
 
 
 def cmd_review(args: argparse.Namespace) -> int:
@@ -353,6 +505,14 @@ def main(argv: list[str] | None = None) -> int:
         c.add_argument("--page")
         c.add_argument("--example")
         c.set_defaults(fn=fn)
+    a = sub.add_parser(
+        "adopt", help="copy proposals from proposed/ over the originals, then re-check"
+    )
+    a.add_argument("--page")
+    a.add_argument("--example")
+    a.add_argument("--all", action="store_true")
+    a.add_argument("--dry-run", action="store_true")
+    a.set_defaults(fn=cmd_adopt)
     r = sub.add_parser("review", help="read-only model review; writes reports/review/")
     r.add_argument("--page")
     r.add_argument("--example")
