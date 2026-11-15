@@ -38,12 +38,17 @@ def _doc_hash(node: ast.AST) -> str:
     return hashlib.sha256(doc.encode()).hexdigest()[:12]
 
 
+# Stored docstring length. The reviewer sees these for the symbols a page names, so cutting a
+# long docstring short (the parameter list is usually last) hides facts it is asked to check.
+DOC_LIMIT = 4000
+
+
 def _entry(kind: str, node: ast.AST, sig: str = "") -> dict[str, Any]:
     return {
         "kind": kind,
         "sig": sig,
         "has_doc": bool(ast.get_docstring(node)),  # type: ignore[arg-type]
-        "doc": (ast.get_docstring(node) or "")[:1200],  # type: ignore[arg-type]
+        "doc": (ast.get_docstring(node) or "")[:DOC_LIMIT],  # type: ignore[arg-type]
         "doc_hash": _doc_hash(node),
         "line": getattr(node, "lineno", 0),
     }

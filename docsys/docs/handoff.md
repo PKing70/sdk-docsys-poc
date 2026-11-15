@@ -97,7 +97,9 @@ Not done:
 
 - Pushing from a shallow clone failed. The history was rebuilt as an unmodified baseline commit plus ours.
 - The SDK's own workflows are disabled in the repo settings, and its Dependabot config was removed.
-- The reviewer only sees what we give it. Give it docstrings for key symbols and the code inside pages.
+- The reviewer only sees what we give it: signatures, docstrings for the symbols a page names (stored
+  up to 4,000 characters, was 1,200), and each cited example file whole. Never SDK function bodies, by
+  design. Claims it cannot verify go to a "needs SME confirmation" list, not the score.
 - Some SDK docstrings are wrong, which can make accurate content score low on accuracy.
 
 ## How the user likes to work

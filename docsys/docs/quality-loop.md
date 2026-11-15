@@ -10,7 +10,7 @@ defend, without chasing perfection forever.
 | Prose | No embedded code (gate), no banned terms (gate), one H1 and required sections per page kind (gate), Flesch reading ease (gate), grade level, average and maximum sentence length (advisory) |
 | Code | Parses, header docstring, `main()` plus guard, balanced regions, stdlib and `splunklib` only, no hard-coded secrets, module-level API exists, ruff lint, length (gates); ruff format, region length, complexity, env-based config (advisory) |
 | Coverage | Every `splunklib.x.y` named in prose exists (gate); each manifest `key_symbol` is named in the page and exercised by an example (gates) |
-| Model rubric | Accuracy, clarity, teaching value, completeness, each 1-5 against the API facts, with a minimum score (gate) |
+| Model rubric | Accuracy, clarity, teaching value, completeness, each 1-5, with a minimum score (gate). The reviewer sees signatures, docstrings for the symbols the page names, and each cited example file whole (one hop, no imports followed). It judges the documentation against that contract, not the SDK's implementation. Accuracy means no contradiction. Claims it cannot check are listed as "needs SME confirmation" in the report and do not lower the score. |
 
 Thresholds are in `quality.toml`. They are modest on purpose: a known, explained floor.
 

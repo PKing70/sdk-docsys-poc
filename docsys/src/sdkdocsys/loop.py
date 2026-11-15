@@ -160,6 +160,10 @@ def render_markdown(o: Outcome) -> str:
     lines += [_check_line(c) for c in o.final.checks]
     if o.judge_issues:
         lines += ["", "## Open reviewer issues", ""] + [f"- {i}" for i in o.judge_issues]
+    notes = [n for c in o.final.checks if c.category == "judge" for n in c.notes]
+    if notes:
+        lines += ["", "## Needs SME confirmation (not scored as errors)", ""]
+        lines += [f"- {n}" for n in notes]
     skipped = [c.name for c in o.final.skipped]
     if skipped:
         lines += [

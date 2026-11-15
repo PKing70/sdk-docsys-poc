@@ -32,6 +32,7 @@ class Check:
     value: Any = None
     threshold: Any = None
     detail: str = ""
+    notes: list[str] = field(default_factory=list)  # judge: claims it could not verify
 
 
 @dataclass
@@ -552,12 +553,21 @@ def check_example(path: Path, cfg: dict, snap: api.Snapshot) -> Report:
 
 JUDGE_SYSTEM = (
     "You are a strict technical-documentation reviewer for the Splunk Python SDK. "
-    "Score the artifact against the API facts supplied. Reply with one JSON object only: "
+    "Score the artifact against the supplied material: the API facts (signatures, plus "
+    "docstrings for the symbols the artifact names) and, for a page, the full example file "
+    "it cites. Reply with one JSON object only: "
     '{"accuracy": 1-5, "clarity": 1-5, "teaching_value": 1-5, "completeness": 1-5, '
-    '"issues": ["short, specific, fixable problems"]}. '
-    "accuracy: every claim and call matches the API facts. teaching_value: the reader learns "
-    "a realistic scenario, not just syntax. Do not praise; list at most 5 concrete problems, "
-    "each under 30 words, most important first. Output the JSON object and nothing else."
+    '"issues": ["short, specific, fixable problems"], '
+    '"unverifiable": ["claims you cannot check from the supplied material"]}. '
+    "accuracy: no claim or call contradicts the supplied material. A claim you cannot check "
+    "against it is not an error: do not lower accuracy for it, list it under unverifiable "
+    "only, and never also under issues. Put a claim in issues only when the supplied material "
+    "contradicts it or the page itself is unclear, incomplete or misleading. Before you score, "
+    "check that no claim appears in both lists. "
+    "teaching_value: the reader learns a realistic scenario, not just syntax. "
+    "Judge the documentation, not how the SDK is implemented. Do not praise. issues: at most "
+    "5 concrete problems, each under 30 words, most important first. unverifiable: at most 5 "
+    "claims, each under 30 words. Output the JSON object and nothing else."
 )
 
 
@@ -589,6 +599,7 @@ def judge(
             "llm_rubric", "judge", None, "gate", detail=f"skipped: judge failed: {exc}"
         ), []
     low = {d: s for d, s in scores.items() if s < cfg["judge"]["min_score"]}
+    unverifiable = [str(i) for i in data.get("unverifiable", [])][:5]
     return (
         Check(
             "llm_rubric",
@@ -598,6 +609,7 @@ def judge(
             scores,
             cfg["judge"]["min_score"],
             "below threshold: " + ", ".join(low) if low else "",
+            unverifiable,
         ),
         [str(i) for i in data.get("issues", [])],
     )
@@ -628,6 +640,53 @@ def api_facts(
             line += "\n    docs: " + " ".join(e["doc"].split())
         blocks.append(line)
     return "\n".join(blocks[:limit])
+
+
+def named_symbols(md: str, snap: api.Snapshot) -> list[str]:
+    """Snapshot symbols a page names in backticks, such as ``Jobs.oneshot``.
+
+    Only dotted or Capitalized names count, so a word like ``count`` does not pull in every
+    symbol that ends in ``.count``. ``api_facts`` still limits the result to covered symbols.
+    """
+    found: list[str] = []
+    for tok in re.findall(r"`([^`\n]+)`", md):
+        name = re.sub(r"\(.*\)$", "", tok.strip())
+        if not re.fullmatch(r"[A-Za-z_][\w.]*", name) or not ("." in name or name[0].isupper()):
+            continue
+        found += [k for k in snap["symbols"] if k == name or k.endswith("." + name)]
+    return list(dict.fromkeys(found))
+
+
+def cited_example_files(md: str) -> list[str]:
+    """Paths named by coderef directives, in page order, each once."""
+    paths = [
+        m["arg"].strip()
+        for ln in md.splitlines()
+        if (m := _OPEN.match(ln)) and m["name"] == "coderef"
+    ]
+    return list(dict.fromkeys(paths))
+
+
+def reviewer_text(md: str, root: Path) -> str:
+    """The page as the model reviewer sees it.
+
+    Each coderef is expanded in place, and the whole of every cited example file follows, so
+    claims about code outside a cited region (such as how the script connects) can be checked.
+    One hop only: files those examples import are not followed.
+    """
+    out = [expand_coderefs(md, root)]
+    for rel in cited_example_files(md):
+        try:
+            code = (root / rel).read_text()
+        except OSError:
+            continue
+        out += [
+            "",
+            f"[FULL EXAMPLE FILE {rel}: context only, the page cites just the regions above]",
+            code.rstrip("\n"),
+            "[END FILE]",
+        ]
+    return "\n".join(out)
 
 
 def expand_coderefs(md: str, root: Path) -> str:
